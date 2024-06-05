@@ -37,7 +37,7 @@ build_busybox_static() {
 	cd "${WORKDIR}"
 	local busybox_src="${OUTPUT_DIR}/busybox"
 	local clean_build=false
-	local commit_hash="fd47f056765aed515f4c71118813f07be1402bee"
+	local commit_id="1a64f6a20aaf6ea4dbba68bbfa8cc1ab7e5c57c4" # busybox v1.36.1
 	local repo="https://git.busybox.net/busybox"
 	local busybox_config="${WORKDIR}/configs/x86_64/busybox/busybox-config"
 
@@ -49,6 +49,7 @@ build_busybox_static() {
 
 	cd "${busybox_src}"
 
+	git checkout ${commit_id}
 	cp "${busybox_config}" "${busybox_src}/.config"
 
 	if [[ -z "${CROSS_COMPILE}" ]]; then
@@ -102,15 +103,18 @@ build_podman() {
 	echo "Enter function: ${FUNCNAME[0]} "
 	local podman_src="${OUTPUT_DIR}/podman_src"
 	local repo="https://github.com/containers/podman"
+	local commit_id="bda6eb03dcbcf12a5b7ae004c1240e38dd056d24" # podman v5.1.1
 
 	if [[ -d "${podman_src}" ]]; then
 		echo ""
 	else
+
 		git clone --depth 1 "${repo}" "${podman_src}"
 	fi
 
 	cd "${podman_src}"
 
+	git checkout ${commit_id}
 	make podman podman-remote
 
 	if [[ -f bin/podman ]] && [[ -f bin/podman-remote ]]; then
@@ -130,6 +134,7 @@ make_netavark() {
 	echo "Enter function: ${FUNCNAME[0]} "
 	local netavark_src="${OUTPUT_DIR}/netavark_src"
 	local repo="https://github.com/containers/netavark"
+	local commit_id="ab4f101a39b687c01e2df578162c2fa16a881c1b" # netavark v1.11.0
 
 	if [[ -d "${netavark_src}" ]]; then
 		echo ""
@@ -138,6 +143,7 @@ make_netavark() {
 	fi
 
 	cd "${netavark_src}"
+	git checkout "${commit_id}"
 	make -j "${MAKE_JOBS}"
 	if [[ -f "${netavark_src}/bin/netavark" ]]; then
 		NETVAVRK_BIN="${netavark_src}/bin/netavark"
