@@ -1,0 +1,233 @@
+#! /usr/bin/bash
+set -o pipefail
+
+# Any Error, do exit !!
+set -e
+
+which proot
+
+sleep 10
+
+readonly OUTPUT_DIR="${WORKDIR}/output/"
+readonly LOG_DIR="${OUTPUT_DIR}/logs/"
+
+readonly TARGET_PLT="$(echo -n "${TARGET}" | cut -d '-' -f1)"
+readonly TARGET_ARCH="$(echo -n "${TARGET}" | cut -d '-' -f2)"
+
+if [[ "${TARGET_ARCH}" == arm64 ]]; then
+	CROSS_COMPILE="aarch64-linux-gnu-"
+fi
+
+if [[ "${TARGET_ARCH}" == x86_64 ]]; then
+	CROSS_COMPILE="x86_64-linux-gnu-"
+fi
+
+if [[ -f "/usr/bin/${CROSS_COMPILE}strip" ]]; then
+	STRIPER="/usr/bin/${CROSS_COMPILE}strip"
+else
+	echo "/usr/bin/$CROSS_COMPILE-strip" not find !!
+	exit 100
+fi
+
+MAKE_JOBS="$(nproc)"
+
+build_busybox_static() {
+	echo "Enter function: ${FUNCNAME[0]} "
+
+	cd "${WORKDIR}"
+	local busybox_src="${OUTPUT_DIR}/busybox"
+	local clean_build=false
+	local commit_hash="fd47f056765aed515f4c71118813f07be1402bee"
+	local repo="https://git.busybox.net/busybox"
+	local busybox_config="${WORKDIR}/configs/x86_64/busybox/busybox-config"
+
+	if [[ -d "${busybox_src}" ]]; then
+		echo ""
+	else
+		git clone --depth 1 "${repo}" "${busybox_src}"
+	fi
+
+	cd "${busybox_src}"
+
+	cp "${busybox_config}" "${busybox_src}/.config"
+
+	if [[ -z "${CROSS_COMPILE}" ]]; then
+		echo "var CROSS_COMPILE not set, stop !"
+		exit 100
+	fi
+
+	if [[ "${clean_build}" == "true" ]]; then
+		ARCH="${TARGET_ARCH}" CROSS_COMPILE=${CROSS_COMPILE} make -j"$MAKE_JOBS" -C "${busybox_src}" clean
+	fi
+
+	ARCH="${TARGET_ARCH}" CROSS_COMPILE=${CROSS_COMPILE} make -j "$MAKE_JOBS" -C "${busybox_src}"
+
+	ARCH="${TARGET_ARCH}" CROSS_COMPILE=${CROSS_COMPILE} make -j "$MAKE_JOBS" -C "${busybox_src}" install
+	BUSYBOX_BIN="${busybox_src}/_install/bin/busybox"
+	echo "Endof function: ${FUNCNAME[0]} "
+}
+
+pull_ubuntu_rootfs() {
+	echo "Enter function: ${FUNCNAME[0]} "
+	cd "${WORKDIR}"
+
+	if [[ "${TARGET_ARCH}" == x86_64 ]]; then
+		UBT_ARCH="amd64"
+	fi
+
+	local cdimage="ubuntu-base-24.04-base-${UBT_ARCH}"
+	local stufix="tar.gz"
+	local ubunturootfs="${OUTPUT_DIR}/${cdimage}"
+	local url="https://cdimage.ubuntu.com/ubuntu-base/releases/24.04/release/${cdimage}.${stufix}"
+	wget -c "${url}" --output-document "${OUTPUT_DIR}/${cdimage}.${stufix}"
+
+	if [[ -d "${ubunturootfs}" ]]; then
+		echo "Skip extract ${OUTPUT_DIR}/${cdimage}.${stufix}"
+	else
+		mkdir -p "${ubunturootfs}"
+		tar -xvf "${OUTPUT_DIR}/${cdimage}.${stufix}" -C "${ubunturootfs}"
+	fi
+	
+	UBT_ROOTFS="${ubunturootfs}"
+
+	proot --root-id -R ${UBT_ROOTFS} apt update
+	proot --root-id -R ${UBT_ROOTFS} apt install apt-utils
+	proot --root-id -R ${UBT_ROOTFS} apt install iptables
+	proot --root-id -R ${UBT_ROOTFS} ldd /usr/sbin/iptables
+
+	echo "Endof function: ${FUNCNAME[0]} "
+}
+
+build_podman() {
+	echo "Enter function: ${FUNCNAME[0]} "
+	local podman_src="${OUTPUT_DIR}/podman_src"
+	local repo="https://github.com/containers/podman"
+
+	if [[ -d "${podman_src}" ]]; then
+		echo ""
+	else
+		git clone --depth 1 "${repo}" "${podman_src}"
+	fi
+
+	cd "${podman_src}"
+
+	make podman podman-remote
+
+	if [[ -f bin/podman ]] && [[ -f bin/podman-remote ]]; then
+		PODMAN_BIN="${podman_src}/bin/podman"
+		PODMAN_REMOTE_BIN="${podman_src}/bin/podman-remote"
+		${STRIPER} --strip-unneeded "${PODMAN_BIN}"
+		${STRIPER} --strip-unneeded "${PODMAN_REMOTE_BIN}"
+	else
+		exit 100
+	fi
+
+	echo "Endof function: ${FUNCNAME[0]} "
+
+}
+
+make_netavark() {
+	echo "Enter function: ${FUNCNAME[0]} "
+	local netavark_src="${OUTPUT_DIR}/netavark_src"
+	local repo="https://github.com/containers/netavark"
+
+	if [[ -d "${netavark_src}" ]]; then
+		echo ""
+	else
+		git clone "${repo}" "${netavark_src}"
+	fi
+
+	cd "${netavark_src}"
+	make -j "${MAKE_JOBS}"
+	if [[ -f "${netavark_src}/bin/netavark" ]]; then
+		NETVAVRK_BIN="${netavark_src}/bin/netavark"
+		${STRIPER} --strip-unneeded "${NETVAVRK_BIN}"
+	else
+		echo "${netavark_src}/bin/netavark NOT FIND"
+		exit 100
+	fi
+	echo "Endof function: ${FUNCNAME[0]} "
+}
+
+make_wsl_rootfs() {
+
+	cd "${WORKDIR}"
+	echo "Enter function: ${FUNCNAME[0]} "
+	local ovmrootfs_version="v1.0"
+	local fakeroot="${OUTPUT_DIR}/ovmrootfs_fakeroot"
+	local ovmrootfs="${fakeroot}/opt/ovmcorefilesystem/ovmrootfs_${ovmrootfs_version}"
+
+	rm -rf "${fakeroot}"
+
+	mkdir -p "${ovmrootfs}/usr/lib/x86_64-linux-gnu/xtables"
+	mkdir -p "${ovmrootfs}/usr/lib/wsl/drivers"
+	mkdir -p "${ovmrootfs}/mnt/wslg/distro"
+	mkdir -p "${ovmrootfs}/usr/lib/modules"
+	mkdir -p "${ovmrootfs}/usr/lib/wsl/lib"
+	mkdir -p "${ovmrootfs}/mnt/wslg/doc"
+	mkdir -p "${ovmrootfs}/usr/lib64"
+	mkdir -p "${ovmrootfs}/usr/bin"
+	mkdir -p "${ovmrootfs}/etc"
+	mkdir -p "${ovmrootfs}/home"
+	mkdir -p "${ovmrootfs}/root"
+
+	cp "${BUSYBOX_BIN}" "${ovmrootfs}/usr/bin"
+	cd "${ovmrootfs}/usr/bin"
+	echo "Install Busybox into ${ovmrootfs}"
+	./busybox --install -s ./
+
+	cd "${ovmrootfs}"
+	ln -s usr/bin bin
+	ln -s usr/lib lib
+	ln -s usr/lib64 lib64
+
+	echo "Install podman and netavark into ${ovmrootfs}"
+	if [[ -f "${PODMAN_BIN}" ]] && [[ -f ${NETVAVRK_BIN} ]]; then
+		cp "${PODMAN_BIN}" "${ovmrootfs}/usr/bin"
+		cp "${NETVAVRK_BIN}" "${ovmrootfs}/usr/bin"
+	else
+		echo "${PODMAN_BIN} ${NETVAVRK_BIN} not find !"
+		exit 100
+	fi
+
+	{
+		cd "${fakeroot}"
+		ln -sf -r "opt/ovmcorefilesystem/ovmrootfs_${ovmrootfs_version}" "ovmrootfs_current"
+
+		dirs=$(busybox ls "ovmrootfs_current/")
+
+		for d in ${dirs}; do
+			echo ln -sf "ovmrootfs_current/${d}" ./"${d}"
+			ln -sf "ovmrootfs_current/${d}" ./"${d}"
+		done
+	}
+
+	OVMCORE_FS="${ovmrootfs}"
+	OVMCORE_OTAFS="${fakeroot}"
+
+	echo "Endof function: ${FUNCNAME[0]} "
+}
+
+main() {
+	# CALLER_ID make sure script called from make, not by others.
+	if [[ "${CALLER_ID}" = "d9b59105e7569a37713aeadb493ca01a3779747f" ]]; then
+		cd "$WORKDIR"
+		build_busybox_static
+		pull_ubuntu_rootfs
+		build_podman
+		make_netavark
+		make_wsl_rootfs
+
+		echo '================================='
+		echo OVMCORE_ROOTFS="${OVMCORE_FS}"
+		echo OVMCORE_OTAFS="${OVMCORE_OTAFS}"
+		echo BUSYBOX_BIN="${BUSYBOX_BIN}"
+		echo PODMAN="${PODMAN_BIN}"
+		echo PODMAN_REMOTE_BIN="${PODMAN_REMOTE_BIN}"
+		echo '================================='
+	else
+		exit 1
+	fi
+}
+
+main
