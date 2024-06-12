@@ -1,6 +1,7 @@
 #!/usr/bin/bash
 
 initialize_var() {
+	export LC_ALL=en_US.UTF8
 	HOST_MACHINE="$(uname -s)"
 	HOST_ARCH="$(uname -p)"
 
@@ -21,8 +22,8 @@ initialize_var() {
 	VAR_INITED=true
 }
 
+
 # First initialize var
-initialize_var
 
 _check_return_code_() {
 	res="$?"
@@ -57,17 +58,23 @@ _valid_plt_() {
 
 install_tools() {
 	echo "------------  ${FUNCNAME[0]} ------------"
+
+	ya_amd64_downloadurl="https://github.com/mikefarah/yq/releases/download/v4.44.1/yq_linux_amd64"
+	ya_arm64_downloadurl="https://github.com/mikefarah/yq/releases/download/v4.44.1/yq_linux_arm64"
+
 	cd "${SCRIPT_PATH}"
 
 	if [[ "$HOST_MACHINE" == "Linux" ]] && [[ -f "/usr/bin/dpkg" ]]; then # Debian pr Ubuntu
 			DEBS+=("git" "tar" "coreutils" "gzip" "libncurses-dev" \
-				"bzip2" "rustc" "cargo" "protobuf-compiler" "busybox" \
+				"bzip2" "rustc" "protobuf-compiler" "busybox" \
 				"locales-all" "make" "bzip2" "pkg-config" "libseccomp-dev" \
-				"libgpgme-dev" "cargo" "libarchive-dev" "libtalloc-dev" "uthash-dev")
+				"libgpgme-dev" "cargo" "libarchive-dev" "libtalloc-dev" "uthash-dev" \
+				"libglib2.0-dev" "libseccomp-dev" "pkg-config" "runc"
+			)
 			
 			if [[ "${HOST_ARCH}" == "arm64" ]] || [[ "${HOST_ARCH}" == "aarch64" ]]; then
 				DEBS+=("gcc-x86-64-linux-gnu" "g++-x86-64-linux-gnu")
-				wget -c https://github.com/mikefarah/yq/releases/download/v4.44.1/yq_linux_arm64 --output-document ./tools/yq_linux_arm64
+				wget -c ${ya_arm64_downloadurl} --output-document ./tools/yq_linux_arm64
 				_check_return_code_
 				chmod +x ./tools/yq_linux_arm64
 				_check_return_code_
@@ -77,7 +84,7 @@ install_tools() {
 				mkdir -p ./tools
 				DEBS+=("gcc-aarch64-linux-gnu" "g++-aarch64-linux-gnu")
 				ARCH_AMD64=amd64
-				wget -c https://github.com/mikefarah/yq/releases/download/v4.44.1/yq_linux_amd64 --output-document ./tools/yq_linux_amd64
+				wget -c ${ya_amd64_downloadurl} --output-document ./tools/yq_linux_amd64
 				_check_return_code_
 				chmod +x ./tools/yq_linux_amd64
 				_check_return_code_
@@ -87,13 +94,14 @@ install_tools() {
 					mkdir -p ./tools/go1.22.3.linux-amd64/
 					tar -xvf ./tools/go1.22.3.linux-amd64.tar.gz -C ./tools/go1.22.3.linux-amd64
 				}
-				test -f ./tools/go1.22.3.linux-amd64/go/bin/go && export PATH="${SCRIPT_PATH}/tools/:${SCRIPT_PATH}/tools/go1.22.3.linux-amd64/go/bin:${PATH}"
+				test -f ./tools/go1.22.3.linux-amd64/go/bin/go && \
+					export PATH="${SCRIPT_PATH}/tools/:${SCRIPT_PATH}/tools/go1.22.3.linux-amd64/go/bin:${PATH}"
 			fi
 
 
 			for pkg in "${DEBS[@]}"; do
-				echo dpkg -l "${pkg}"
-				dpkg -l "${pkg}" >/dev/null
+				echo  "List installed packages..."
+				dpkg -l | grep ${pkg}
 				rtvalue=$?
 				if [[ "$rtvalue" -eq 0 ]]; then
 					continue
@@ -191,6 +199,9 @@ build_each_platform() {
 }
 
 main() {
+	
+	initialize_var
+	
 	cd "${SCRIPT_PATH}"
 	install_tools
 	build_proot

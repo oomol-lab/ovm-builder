@@ -4,10 +4,6 @@ set -o pipefail
 # Any Error, do exit !!
 set -e
 
-which proot
-
-sleep 10
-
 readonly OUTPUT_DIR="${WORKDIR}/output/"
 readonly LOG_DIR="${OUTPUT_DIR}/logs/"
 
@@ -44,12 +40,11 @@ build_busybox_static() {
 	if [[ -d "${busybox_src}" ]]; then
 		echo ""
 	else
-		git clone --depth 1 "${repo}" "${busybox_src}"
+		git clone "${repo}" "${busybox_src}"
 	fi
 
 	cd "${busybox_src}"
 
-	git checkout ${commit_id}
 	cp "${busybox_config}" "${busybox_src}/.config"
 
 	if [[ -z "${CROSS_COMPILE}" ]]; then
@@ -88,13 +83,17 @@ pull_ubuntu_rootfs() {
 		mkdir -p "${ubunturootfs}"
 		tar -xvf "${OUTPUT_DIR}/${cdimage}.${stufix}" -C "${ubunturootfs}"
 	fi
-	
+
 	UBT_ROOTFS="${ubunturootfs}"
 
-	proot --root-id -R ${UBT_ROOTFS} apt update
-	proot --root-id -R ${UBT_ROOTFS} apt install apt-utils
-	proot --root-id -R ${UBT_ROOTFS} apt install iptables
-	proot --root-id -R ${UBT_ROOTFS} ldd /usr/sbin/iptables
+	proot --root-id -R "${UBT_ROOTFS}" apt -y update
+	proot --root-id -R "${UBT_ROOTFS}" apt -y install apt-utils iptables grep tar file
+	LDDRET=$(proot --root-id -R "${UBT_ROOTFS}" \
+		ldd /usr/sbin/iptables | grep -v linux-vdso |cut -d '>' -f2 | cut -d '(' -f1
+	)
+	IPTABLES_LIBS=$(proot --root-id -R "${UBT_ROOTFS}" \
+		file -L $(dpkg -L iptables) | grep ELF| cut -d ':' -f1
+	)
 
 	echo "Endof function: ${FUNCNAME[0]} "
 }
@@ -109,7 +108,7 @@ build_podman() {
 		echo ""
 	else
 
-		git clone --depth 1 "${repo}" "${podman_src}"
+		git clone "${repo}" "${podman_src}"
 	fi
 
 	cd "${podman_src}"
@@ -126,8 +125,15 @@ build_podman() {
 		exit 100
 	fi
 
+	PODMAN_LIBS=$(ldd ${podman_src}/bin/podman | grep -v linux-vdso |cut -d '>' -f2 | cut -d '(' -f1)
+
 	echo "Endof function: ${FUNCNAME[0]} "
 
+}
+
+build_conmon(){
+	wget -c https://github.com/containers/conmon/releases/download/v2.1.12/conmon.amd64 --output-document "${OUTPUT_DIR}/conmon.amd64"
+	CONMON="${OUTPUT_DIR}/conmon.amd64"
 }
 
 make_netavark() {
@@ -160,8 +166,8 @@ make_wsl_rootfs() {
 	cd "${WORKDIR}"
 	echo "Enter function: ${FUNCNAME[0]} "
 	local ovmrootfs_version="v1.0"
-	local fakeroot="${OUTPUT_DIR}/ovmrootfs_fakeroot"
-	local ovmrootfs="${fakeroot}/opt/ovmcorefilesystem/ovmrootfs_${ovmrootfs_version}"
+	local fakeroot="${OUTPUT_DIR}/ovmrootfs_fakeroot"                                  # Absolute path !
+	local ovmrootfs="${fakeroot}/opt/ovmcorefilesystem/ovmrootfs_${ovmrootfs_version}" # Absolute path !
 
 	rm -rf "${fakeroot}"
 
@@ -180,23 +186,28 @@ make_wsl_rootfs() {
 	cp "${BUSYBOX_BIN}" "${ovmrootfs}/usr/bin"
 	cd "${ovmrootfs}/usr/bin"
 	echo "Install Busybox into ${ovmrootfs}"
-	./busybox --install -s ./
+	./busybox --install ./
 
 	cd "${ovmrootfs}"
 	ln -s usr/bin bin
 	ln -s usr/lib lib
 	ln -s usr/lib64 lib64
 
-	echo "Install podman and netavark into ${ovmrootfs}"
-	if [[ -f "${PODMAN_BIN}" ]] && [[ -f ${NETVAVRK_BIN} ]]; then
+	echo "Install podman/netavark/conmon into ${ovmrootfs}"
+	if [[ -f "${PODMAN_BIN}" ]] && [[ -f ${NETVAVRK_BIN} ]] && [[ -f ${CONMON} ]]; then
+		mkdir -p "${ovmrootfs}/usr/libexec/podman/"
+		cp -rf "${CONMON}" "${ovmrootfs}/usr/libexec/podman/conmon"
+		chmod +x "${ovmrootfs}/usr/libexec/podman/conmon"
 		cp "${PODMAN_BIN}" "${ovmrootfs}/usr/bin"
 		cp "${NETVAVRK_BIN}" "${ovmrootfs}/usr/bin"
 	else
-		echo "${PODMAN_BIN} ${NETVAVRK_BIN} not find !"
+		echo "Copy podman and netvavrk into wslrootfs failed !"
 		exit 100
 	fi
 
 	{
+		echo "We are in $(pwd)"
+		echo "Create soft-link : opt/ovmcorefilesystem/ovmrootfs_${ovmrootfs_version} => ovmrootfs_current"
 		cd "${fakeroot}"
 		ln -sf -r "opt/ovmcorefilesystem/ovmrootfs_${ovmrootfs_version}" "ovmrootfs_current"
 
@@ -208,8 +219,35 @@ make_wsl_rootfs() {
 		done
 	}
 
-	OVMCORE_FS="${ovmrootfs}"
-	OVMCORE_OTAFS="${fakeroot}"
+	touch /tmp/empty
+	tar -cvf  /tmp/iptables.tar /tmp/empty
+
+	for line in $IPTABLES_LIBS;do
+		cd ${UBT_ROOTFS}
+		tar --dereference -rvf /tmp/iptables.tar ${line} 2>/dev/null
+	done
+	for line in $LDDRET;do
+		 cd ${UBT_ROOTFS}
+		tar --dereference -rvf /tmp/iptables.tar ${line} 2>/dev/null
+	done
+	for line in ${PODMAN_LIBS};do
+		tar --dereference -rvf /tmp/iptables.tar ${line} 2>/dev/null
+	done
+	cd ${SCRIPT_PATH}
+
+	cd ${ovmrootfs}
+	tar -xvf /tmp/iptables.tar -C ./
+
+	cp -r ${UBT_ROOTFS}/etc/ld.so* "${ovmrootfs}/etc/"
+
+	OVMCORE_FS="${ovmrootfs}"   # Absolute path !
+	OVMCORE_OTAFS="${fakeroot}" # Absolute path !
+
+	cd ${ovmrootfs}
+	tar -Jcvf "${OUTPUT_DIR}/ovmrootfs.tar.xz" $(ls .)
+	
+	cd ${fakeroot}
+	tar -Jcvf "${OUTPUT_DIR}/ovmrootfs_ota.tar.xz" $(ls .)
 
 	echo "Endof function: ${FUNCNAME[0]} "
 }
@@ -222,11 +260,14 @@ main() {
 		pull_ubuntu_rootfs
 		build_podman
 		make_netavark
+		build_conmon
 		make_wsl_rootfs
 
 		echo '================================='
 		echo OVMCORE_ROOTFS="${OVMCORE_FS}"
+		echo OVMCORE_ROOTFS_ARCHIVE="${OUTPUT_DIR}/ovmrootfs.tar.xz"
 		echo OVMCORE_OTAFS="${OVMCORE_OTAFS}"
+		echo OVMCORE_OTAFS_ARCHIVE="${OUTPUT_DIR}/ovmrootfs_ota.tar.xz"
 		echo BUSYBOX_BIN="${BUSYBOX_BIN}"
 		echo PODMAN="${PODMAN_BIN}"
 		echo PODMAN_REMOTE_BIN="${PODMAN_REMOTE_BIN}"
