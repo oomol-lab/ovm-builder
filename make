@@ -5,7 +5,6 @@ initialize_var() {
 	HOST_MACHINE="$(uname -s)"
 	HOST_ARCH="$(uname -p)"
 
-
 	CONFIG_YAML="./config.yaml"
 
 	pushd . >/dev/null
@@ -21,7 +20,6 @@ initialize_var() {
 	# set var inited flag
 	VAR_INITED=true
 }
-
 
 # First initialize var
 
@@ -65,52 +63,52 @@ install_tools() {
 	cd "${SCRIPT_PATH}"
 
 	if [[ "$HOST_MACHINE" == "Linux" ]] && [[ -f "/usr/bin/dpkg" ]]; then # Debian pr Ubuntu
-			DEBS+=("git" "tar" "coreutils" "gzip" "libncurses-dev" \
-				"bzip2" "rustc" "protobuf-compiler" "busybox" \
-				"locales-all" "make" "bzip2" "pkg-config" "libseccomp-dev" \
-				"libgpgme-dev" "cargo" "libarchive-dev" "libtalloc-dev" "uthash-dev" \
-				"libglib2.0-dev" "libseccomp-dev" "pkg-config" "runc"
-			)
-			
-			if [[ "${HOST_ARCH}" == "arm64" ]] || [[ "${HOST_ARCH}" == "aarch64" ]]; then
-				DEBS+=("gcc-x86-64-linux-gnu" "g++-x86-64-linux-gnu")
-				wget -c ${ya_arm64_downloadurl} --output-document ./tools/yq_linux_arm64
-				_check_return_code_
-				chmod +x ./tools/yq_linux_arm64
-				_check_return_code_
+		DEBS+=(
+			"git" "tar" "coreutils" "gzip" "libncurses-dev"
+			"bzip2" "rustc" "protobuf-compiler" "busybox"
+			"locales-all" "make" "bzip2" "pkg-config" "libseccomp-dev"
+			"libgpgme-dev" "cargo" "libarchive-dev" "libtalloc-dev" "uthash-dev"
+			"libglib2.0-dev" "libseccomp-dev" "pkg-config" "runc" "iptables" "curl" "openssl"
+		)
+
+		if [[ "${HOST_ARCH}" == "arm64" ]] || [[ "${HOST_ARCH}" == "aarch64" ]]; then
+			DEBS+=("gcc-x86-64-linux-gnu" "g++-x86-64-linux-gnu")
+			wget -c ${ya_arm64_downloadurl} --output-document ./tools/yq_linux_arm64
+			_check_return_code_
+			chmod +x ./tools/yq_linux_arm64
+			_check_return_code_
+		fi
+
+		if [[ "${HOST_ARCH}" == "amd64" ]] || [[ "${HOST_ARCH}" == "x86_64" ]]; then
+			mkdir -p ./tools
+			DEBS+=("gcc-aarch64-linux-gnu" "g++-aarch64-linux-gnu")
+			ARCH_AMD64=amd64
+			wget -c ${ya_amd64_downloadurl} --output-document ./tools/yq_linux_amd64
+			_check_return_code_
+			chmod +x ./tools/yq_linux_amd64
+			_check_return_code_
+			wget -c https://go.dev/dl/go1.22.3.linux-amd64.tar.gz --output-document ./tools/go1.22.3.linux-amd64.tar.gz
+			_check_return_code_
+			test -f ./tools/go1.22.3.linux-amd64/go/bin/go || {
+				mkdir -p ./tools/go1.22.3.linux-amd64/
+				tar -xvf ./tools/go1.22.3.linux-amd64.tar.gz -C ./tools/go1.22.3.linux-amd64
+			}
+			test -f ./tools/go1.22.3.linux-amd64/go/bin/go &&
+				export PATH="${SCRIPT_PATH}/tools/:${SCRIPT_PATH}/tools/go1.22.3.linux-amd64/go/bin:${PATH}"
+		fi
+
+		for pkg in "${DEBS[@]}"; do
+			echo "List installed packages..."
+			dpkg -l | grep ${pkg}
+			rtvalue=$?
+			if [[ "$rtvalue" -eq 0 ]]; then
+				continue
+			else
+				echo "Please install ${pkg}:"
+				echo "sudo apt install ${pkg}"
+				exit 100
 			fi
-
-			if [[ "${HOST_ARCH}" == "amd64" ]] || [[ "${HOST_ARCH}" == "x86_64" ]]; then
-				mkdir -p ./tools
-				DEBS+=("gcc-aarch64-linux-gnu" "g++-aarch64-linux-gnu")
-				ARCH_AMD64=amd64
-				wget -c ${ya_amd64_downloadurl} --output-document ./tools/yq_linux_amd64
-				_check_return_code_
-				chmod +x ./tools/yq_linux_amd64
-				_check_return_code_
-				wget -c https://go.dev/dl/go1.22.3.linux-amd64.tar.gz  --output-document ./tools/go1.22.3.linux-amd64.tar.gz
-				_check_return_code_
-				test -f ./tools/go1.22.3.linux-amd64/go/bin/go || { 
-					mkdir -p ./tools/go1.22.3.linux-amd64/
-					tar -xvf ./tools/go1.22.3.linux-amd64.tar.gz -C ./tools/go1.22.3.linux-amd64
-				}
-				test -f ./tools/go1.22.3.linux-amd64/go/bin/go && \
-					export PATH="${SCRIPT_PATH}/tools/:${SCRIPT_PATH}/tools/go1.22.3.linux-amd64/go/bin:${PATH}"
-			fi
-
-
-			for pkg in "${DEBS[@]}"; do
-				echo  "List installed packages..."
-				dpkg -l | grep ${pkg}
-				rtvalue=$?
-				if [[ "$rtvalue" -eq 0 ]]; then
-					continue
-				else
-					echo "Please install ${pkg}:"
-					echo "sudo apt install ${pkg}"
-					exit 100
-				fi
-			done
+		done
 	else
 		echo "Only support Ubuntu x86_64 & arm64"
 		exit 100
@@ -154,13 +152,11 @@ parseConfigAndCreateDir() {
 		#echo "- Targets List: $OVMCORE_PLATFORM"
 	fi
 	echo "------------ Endof function: ${FUNCNAME[0]} ------------"
-	echo "" 
+	echo ""
 
 }
 
-
-
-build_proot(){
+build_proot() {
 	local proot_src="${SCRIPT_PATH}/tools/proot_src"
 	local repo="https://github.com/proot-me/proot"
 	test -d "${proot_src}" || git clone "${repo}" "${proot_src}"
@@ -170,8 +166,8 @@ build_proot(){
 	_check_return_code_
 	make -C src proot care
 	_check_return_code_
-	
-	if [[ -f ${proot_src}/src/proot ]];then
+
+	if [[ -f ${proot_src}/src/proot ]]; then
 		cp "${proot_src}/src/proot" "${SCRIPT_PATH}/tools/"
 	fi
 }
@@ -192,16 +188,15 @@ build_each_platform() {
 				CALLER_ID="d9b59105e7569a37713aeadb493ca01a3779747f" \
 				WORKDIR="$SCRIPT_PATH" \
 				PATH=${PATH} \
+				PS4='Line ${LINENO}: ' \
 				bash +x "./target_builder/build_${target}_rootfs"
 	done
 	echo "------------ Endof function: ${FUNCNAME[0]} ------------"
-	echo "" 
+	echo ""
 }
 
 main() {
-	
 	initialize_var
-	
 	cd "${SCRIPT_PATH}"
 	install_tools
 	build_proot
