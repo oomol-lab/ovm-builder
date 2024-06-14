@@ -136,32 +136,74 @@ pack_deps() {
 	echo "Enter function: ${FUNCNAME[0]} "
 
 	touch /tmp/empty
-	tar -cvf "${OUTPUT_DIR}/deps.tar" /tmp/empty
+	tar -cvf "${OUTPUT_DIR}/deps.tar" /tmp/empty # create a empty tar file,so that we can add archive files
 
-	IPTABLES_LIBS=()
-	IPTABLES_LIBS+=$(ldd /usr/sbin/iptables | grep -v linux-vdso | cut -d '>' -f2 | cut -d '(' -f1 )
-	IPTABLES_LIBS+=$(ldd /usr/sbin/ip6tables | grep -v linux-vdso | cut -d '>' -f2 | cut -d '(' -f1 )
-	LIST=${IPTABLES_LIBS[@]}
-	for wb in $LIST; do
-		tar --dereference -rvf "${OUTPUT_DIR}/deps.tar" "${wb}"
-	done
-	tar --dereference -rvf "${OUTPUT_DIR}/deps.tar" /usr/lib/x86_64-linux-gnu/xtables
+	{
+		IPTABLES_LIBS=()
+		IPTABLES_LIBS+=$(ldd /usr/sbin/iptables | grep -v linux-vdso | cut -d '>' -f2 | cut -d '(' -f1)
+		IPTABLES_LIBS+=$(ldd /usr/sbin/ip6tables | grep -v linux-vdso | cut -d '>' -f2 | cut -d '(' -f1)
+		LIST=${IPTABLES_LIBS[@]}
+		for wb in $LIST; do
+			tar --dereference -rvf "${OUTPUT_DIR}/deps.tar" "${wb}"
+		done
+		tar --dereference -rvf "${OUTPUT_DIR}/deps.tar" /usr/lib/x86_64-linux-gnu/xtables
+	}
 
-	PODMAN_LIBS=()
-	PODMAN_LIBS+=$(ldd ${PODMAN_BIN} | grep -v linux-vdso | cut -d '>' -f2 | cut -d '(' -f1)
-	LIST=${PODMAN_LIBS[@]}
-	for wb in $LIST; do
-		tar --dereference -rvf "${OUTPUT_DIR}/deps.tar" "${wb}"
-	done
+	{
+		PODMAN_LIBS=()
+		PODMAN_LIBS+=$(ldd ${PODMAN_BIN} | grep -v linux-vdso | cut -d '>' -f2 | cut -d '(' -f1)
+		LIST=${PODMAN_LIBS[@]}
+		for wb in $LIST; do
+			tar --dereference -rvf "${OUTPUT_DIR}/deps.tar" "${wb}"
+		done
+	}
 
-	NETVAVRK_LIBS=()
-	NETVAVRK_LIBS+=$(ldd ${NETVAVRK_BIN} | grep -v linux-vdso | cut -d '>' -f2 | cut -d '(' -f1)
-	LIST=${NETVAVRK_LIBS[@]}
-	for wb in $LIST; do
-		tar --dereference -rvf "${OUTPUT_DIR}/deps.tar" "${wb}"
-	done
+	{
+		NETVAVRK_LIBS=()
+		NETVAVRK_LIBS+=$(ldd ${NETVAVRK_BIN} | grep -v linux-vdso | cut -d '>' -f2 | cut -d '(' -f1)
+		LIST=${NETVAVRK_LIBS[@]}
+		for wb in $LIST; do
+			tar --dereference -rvf "${OUTPUT_DIR}/deps.tar" "${wb}"
+		done
 
-	tar --dereference -rvf "${OUTPUT_DIR}/deps.tar" /etc/ssl
+	}
+
+	{
+		tar --dereference -rvf "${OUTPUT_DIR}/deps.tar" /etc/ssl
+	}
+
+	{
+		lsblk_bin="/usr/bin/lsblk"
+		if [[ -f ${lsblk_bin} ]]; then
+			LSBLK_LIBS=()
+			LSBLK_LIBS+=$(ldd ${lsblk_bin} | grep -v linux-vdso | cut -d '>' -f2 | cut -d '(' -f1)
+			LSBLK_LIBS+="${lsblk_bin}"
+		else
+			echo "Please apt install util-linux"
+			exit 100
+		fi
+		LIST=$(echo "${LSBLK_LIBS[@]}" | xargs)
+		for wb in $LIST; do
+			tar --dereference -rvf "${OUTPUT_DIR}/deps.tar" "${wb}"
+		done
+	}
+
+	{
+		mkfsext4_bin="/usr/sbin/mkfs.ext4"
+		if [[ -f ${mkfsext4_bin} ]]; then
+			LSBLK_LIBS=()
+			LSBLK_LIBS+=$(ldd ${mkfsext4_bin} | grep -v linux-vdso | cut -d '>' -f2 | cut -d '(' -f1)
+			LSBLK_LIBS+="${mkfsext4_bin}"
+		else
+			echo "Please apt install util-linux"
+			exit 100
+		fi
+		LIST=$(echo "${LSBLK_LIBS[@]}" | xargs)
+		for wb in $LIST; do
+			tar --dereference -rvf "${OUTPUT_DIR}/deps.tar" "${wb}"
+		done
+	}
+	
 
 	echo "Endof function: ${FUNCNAME[0]} "
 }
@@ -195,11 +237,9 @@ install_deps() {
 		tar -xvf "${OUTPUT_DIR}/deps.tar" -C ./
 
 		cp -r /etc/ld.so* "${ovmrootfs}/etc/"
-
 	else
 		exit 100
 	fi
-
 }
 
 write_podman_config() {
@@ -230,7 +270,7 @@ insecure = false
         }
     ]
 }
-' > "${ovmrootfs}/etc/containers/policy.json"
+' >"${ovmrootfs}/etc/containers/policy.json"
 
 }
 
@@ -284,11 +324,10 @@ make_wsl_rootfs() {
 	OVMCORE_FS="${ovmrootfs}"   # Absolute path !
 	OVMCORE_OTAFS="${fakeroot}" # Absolute path !
 
-
 	echo "Endof function: ${FUNCNAME[0]} "
 }
 
-pack_ovmfs(){
+pack_ovmfs() {
 	cd ${ovmrootfs}
 	tar -Jcvf "${OUTPUT_DIR}/ovmrootfs.tar.xz" $(ls .)
 
@@ -310,8 +349,6 @@ main() {
 		install_deps
 		write_podman_config
 		pack_ovmfs
-		
-
 
 		echo '================================='
 		echo OVMCORE_ROOTFS="${OVMCORE_FS}"
