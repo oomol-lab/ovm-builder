@@ -293,6 +293,7 @@ make_wsl_rootfs() {
 	mkdir -p "${ovmrootfs}/etc"
 	mkdir -p "${ovmrootfs}/home"
 	mkdir -p "${ovmrootfs}/root"
+	mkdir -p "${ovmrootfs}/opt"
 	mkdir -p "${ovmrootfs}/var/tmp"
 
 	cp "${BUSYBOX_BIN}" "${ovmrootfs}/usr/bin"
