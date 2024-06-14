@@ -4,9 +4,9 @@ set -o pipefail
 
 usage() {
 	echo "Usage: $0 -p <podman-http-port> -s <data-sector-counts> [--help]"
-	echo "  -p, --podman-http-port <podman-http-port>: TCP port number of podman api service"
-	echo "  -s, --data-sector-counts <data-sector-counts>:     Sector counts of Data disk"
-	echo "  --help: Display this help message"
+	echo "  -p, --podman-http-port   <number>:    TCP port number of podman api service"
+	echo "  -s, --data-sector-counts <number>:    Sector counts of Data disk"
+	echo "  --help                           :    Display this help message"
 	exit 100
 }
 
@@ -54,7 +54,6 @@ parse_args() {
 	fi
 
 	echo "INFO: PODMAN API LISTEN PORT: ${podman_port_port}, DATA SECTOR SIZE: ${data_sector_counts}"
-
 }
 
 get_blk_sector_count() {
@@ -82,10 +81,10 @@ mount_disk() {
 	else
 		busybox mount /dev/$BLKNAME $mountpoint
 		test $? -eq 0 && {
-			echo "Mount ${BLKNAME} success" 
+			echo "Mount ${BLKNAME} success"
 		} || {
 			echo "Mount ${BLKNAME} failed"
-		       	exit 100
+			exit 100
 		}
 	fi
 }
@@ -115,7 +114,6 @@ make_fs() {
 	test -f ${lsblk_bin} && {
 		# Find lsblk
 		echo -n ""
-
 	} || {
 		# Not find lsblk
 		exit 100
@@ -142,7 +140,6 @@ make_fs() {
 		exit 100
 	}
 }
-
 
 main() {
 	parse_args "$@"

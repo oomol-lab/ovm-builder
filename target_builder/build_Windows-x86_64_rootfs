@@ -92,7 +92,6 @@ build_podman() {
 	fi
 
 	echo "Endof function: ${FUNCNAME[0]} "
-
 }
 
 get_conmon() {
@@ -203,13 +202,11 @@ pack_deps() {
 			tar --dereference -rvf "${OUTPUT_DIR}/deps.tar" "${wb}"
 		done
 	}
-	
 
 	echo "Endof function: ${FUNCNAME[0]} "
 }
 
 install_deps() {
-
 	if [[ -f "${PODMAN_BIN}" ]] && [[ -f "${NETVAVRK_BIN}" ]] && [[ -f ${CONMON} ]] && [[ -f ${CRUN} ]]; then
 		mkdir -p "${ovmrootfs}/usr/libexec/podman/"
 
@@ -277,7 +274,6 @@ insecure = false
 }
 
 make_wsl_rootfs() {
-
 	cd "${WORKDIR}"
 	echo "Enter function: ${FUNCNAME[0]} "
 	local ovmrootfs_version="v1.0"
