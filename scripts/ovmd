@@ -1,0 +1,153 @@
+#! /usr/bin/env sh
+PS4='Line ${LINENO}: '
+set -o pipefail
+
+usage() {
+	echo "Usage: $0 -p <podman-http-port> -s <data-sector-counts> [--help]"
+	echo "  -p, --podman-http-port   <number>:    TCP port number of podman api service"
+	echo "  -s, --data-sector-counts <number>:    Sector counts of Data disk"
+	echo "  --help                           :    Display this help message"
+	exit 100
+}
+
+parse_args() {
+	opts=$(getopt -o p:s:h --long podman-http-port:,data-sector-counts:,help -- "$@")
+
+	if [ $? -ne 0 ]; then
+		usage
+	fi
+
+	eval set -- "$opts"
+
+	while true; do
+		case "$1" in
+		-p | --podman-http-port)
+			podman_port_port="$2"
+			shift 2
+			;;
+		-s | --data-sector-counts)
+			data_sector_counts="$2"
+			shift 2
+			;;
+		-h | --help)
+			usage
+			;;
+		--)
+			shift
+			break
+			;;
+		*)
+			echo "Internal error!"
+			usage
+			;;
+		esac
+	done
+
+	if [[ -z "${podman_port_port}" ]]; then
+		echo "Need -p/--podman-http-port"
+		exit 100
+	fi
+
+	if [[ -z "${data_sector_counts}" ]]; then
+		echo "Need -s/--data-sector-counts"
+		exit 100
+	fi
+
+	echo "INFO: PODMAN API LISTEN PORT: ${podman_port_port}, DATA SECTOR SIZE: ${data_sector_counts}"
+}
+
+get_blk_sector_count() {
+	block_with_sector_counts=$(ls /sys/block/*/size)
+	for blk in ${block_with_sector_counts}; do
+		sector_counts="$(cat ${blk})"
+		blkname=$(dirname ${blk})
+
+		if [[ "${data_sector_counts}" = "${sector_counts}" ]]; then
+			BLKNAME=$(basename ${blkname}) # BLKNAME is target block !!
+			echo "Data block is $BLKNAME, Sector count $data_sector_counts"
+			break
+		fi
+	done
+}
+
+mount_disk() {
+	mountpoint="/var"
+	mountpatten="^${mountpoint}"
+	busybox mount | cut -d ' ' -f3 | grep ${mountpatten} >/dev/null
+	ret=$?
+	if [[ $ret -eq 0 ]]; then
+		echo "$mountpoint is mounted !"
+		return
+	else
+		busybox mount /dev/$BLKNAME $mountpoint
+		test $? -eq 0 && {
+			echo "Mount ${BLKNAME} success"
+		} || {
+			echo "Mount ${BLKNAME} failed"
+			exit 100
+		}
+	fi
+}
+
+run_podman() {
+	local podman_bin="/usr/bin/podman"
+
+	test -f ${podman_bin} && {
+		echo -n ""
+	} || {
+		exit 100
+	}
+	echo "Runing podman...."
+	mkdir -p /var/tmp # podman need this dir,so we make it
+	${podman_bin} system service --time=0 "tcp://127.0.0.1:${podman_port_port}"
+}
+
+kill_old_podman() {
+	killall podman 2>/dev/null
+}
+
+make_fs() {
+	BLKNODE="/dev/$BLKNAME"
+	UUID="8a3219d0-4002-4cd9-8cb1-f3ffe52451f1"
+
+	lsblk_bin="/usr/bin/lsblk"
+	test -f ${lsblk_bin} && {
+		# Find lsblk
+		echo -n ""
+	} || {
+		# Not find lsblk
+		exit 100
+	}
+
+	${lsblk_bin} -o UUID ${BLKNODE} | grep "${UUID}"
+	test $? -eq 0 && {
+		echo "Find ${BLKNODE} with  ${UUID}"
+		return
+	} || {
+		echo "${BLKNODE} UUID not correct, try to make filesystem with uuid ${UUID}"
+	}
+
+	mkfs_bin="/usr/sbin/mkfs.ext4"
+	test -f ${mkfs_bin} && echo "Try to make filesystem $BLKNAME" || {
+		echo "${mkfs_bin} not find !!"
+		exit 100
+	}
+
+	echo "${mkfs_bin} -U ${UUID} -F ${BLKNODE}"
+	${mkfs_bin} -U "${UUID}" -F ${BLKNODE}
+	test $? -eq 0 && echo "make ext4 ${BLKNODE} done" || {
+		echo "make ext4 ${BLKNODE} failed"
+		exit 100
+	}
+}
+
+main() {
+	parse_args "$@"
+	kill_old_podman
+	get_blk_sector_count
+	make_fs
+	mount_disk
+	run_podman
+}
+
+main "$@"
