@@ -237,6 +237,8 @@ install_deps() {
 		tar -xvf "${OUTPUT_DIR}/deps.tar" -C ./
 
 		cp -r /etc/ld.so* "${ovmrootfs}/etc/"
+		cp ${WORKDIR}/scripts/ovmd ${ovmrootfs}/opt/ovmd
+		chmod +x ${ovmrootfs}/opt/ovmd
 	else
 		exit 100
 	fi
