@@ -66,6 +66,9 @@ get_blk_sector_count() {
 			BLKNAME=$(basename ${blkname}) # BLKNAME is target block !!
 			echo "Data block is $BLKNAME, Sector count $data_sector_counts"
 			break
+		else
+			echo "No block with sector counts: ${data_sector_counts}"
+			exit 100
 		fi
 	done
 }
@@ -109,17 +112,9 @@ kill_old_podman() {
 make_fs() {
 	BLKNODE="/dev/$BLKNAME"
 	UUID="8a3219d0-4002-4cd9-8cb1-f3ffe52451f1"
+	findfs_bin="/usr/bin/findfs"
 
-	lsblk_bin="/usr/bin/lsblk"
-	test -f ${lsblk_bin} && {
-		# Find lsblk
-		echo -n ""
-	} || {
-		# Not find lsblk
-		exit 100
-	}
-
-	${lsblk_bin} -o UUID ${BLKNODE} | grep "${UUID}"
+	${findfs_bin} UUID=${UUID} >/dev/null 2>&1 
 	test $? -eq 0 && {
 		echo "Find ${BLKNODE} with  ${UUID}"
 		return

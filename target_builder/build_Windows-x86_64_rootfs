@@ -133,7 +133,6 @@ get_crun() {
 
 pack_deps() {
 	echo "Enter function: ${FUNCNAME[0]} "
-
 	touch /tmp/empty
 	tar -cvf "${OUTPUT_DIR}/deps.tar" /tmp/empty # create a empty tar file,so that we can add archive files
 
@@ -169,22 +168,6 @@ pack_deps() {
 
 	{
 		tar --dereference -rvf "${OUTPUT_DIR}/deps.tar" /etc/ssl
-	}
-
-	{
-		lsblk_bin="/usr/bin/lsblk"
-		if [[ -f ${lsblk_bin} ]]; then
-			LSBLK_LIBS=()
-			LSBLK_LIBS+=$(ldd ${lsblk_bin} | grep -v linux-vdso | cut -d '>' -f2 | cut -d '(' -f1)
-			LSBLK_LIBS+="${lsblk_bin}"
-		else
-			echo "Please apt install util-linux"
-			exit 100
-		fi
-		LIST=$(echo "${LSBLK_LIBS[@]}" | xargs)
-		for wb in $LIST; do
-			tar --dereference -rvf "${OUTPUT_DIR}/deps.tar" "${wb}"
-		done
 	}
 
 	{
