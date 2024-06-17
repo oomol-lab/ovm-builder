@@ -65,12 +65,12 @@ get_blk_sector_count() {
 		if [[ "${data_sector_counts}" = "${sector_counts}" ]]; then
 			BLKNAME=$(basename ${blkname}) # BLKNAME is target block !!
 			echo "Data block is $BLKNAME, Sector count $data_sector_counts"
-			break
-		else
-			echo "No block with sector counts: ${data_sector_counts}"
-			exit 100
+			return
 		fi
 	done
+
+	echo "No block with sector counts: ${data_sector_counts}"
+	exit 100
 }
 
 mount_disk() {
