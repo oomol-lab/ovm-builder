@@ -288,6 +288,7 @@ make_wsl_rootfs() {
 	ln -s usr/bin bin
 	ln -s usr/lib lib
 	ln -s usr/lib64 lib64
+	echo 'root:x:0:0:root:/root:/bin/sh' > etc/passwd
 
 	{
 		echo "We are in $(pwd)"
