@@ -64,8 +64,8 @@ install_tools() {
 
 	if [[ "$HOST_MACHINE" == "Linux" ]] && [[ -f "/usr/bin/dpkg" ]]; then # Debian pr Ubuntu
 		DEBS+=(
-			"git" "tar" "coreutils" "gzip" "libncurses-dev" "util-linux"
-			"bzip2" "rustc" "protobuf-compiler" "busybox" "e2fsprogs"
+			"git" "tar" "coreutils" "gzip" "libncurses-dev" "util-linux"  "meson" "ninja-build"
+			"bzip2" "rustc" "protobuf-compiler" "busybox" "e2fsprogs" "libcap-dev"
 			"locales-all" "make" "bzip2" "pkg-config" "libseccomp-dev"
 			"libgpgme-dev" "cargo" "libarchive-dev" "libtalloc-dev" "uthash-dev"
 			"libglib2.0-dev" "libseccomp-dev" "pkg-config" "runc" "iptables" "curl" "openssl"

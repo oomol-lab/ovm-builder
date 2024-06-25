@@ -28,6 +28,35 @@ fi
 
 MAKE_JOBS="$(nproc)"
 
+build_openec(){
+	cd "${WORKDIR}"	
+	local openrc_src="${OUTPUT_DIR}/openrc"
+	local repo="https://github.com/OpenRC/openrc"
+	local commit_id="4574b5d8e4cee1febfcef301c0c48723e12c5478"
+	if [[ -d "${openrc_src}" ]]; then
+		echo ""
+	else
+		git clone "${repo}" "${openrc_src}"
+	fi
+
+	cd ${openrc_src}
+	git checkout ${commit_id}
+	rm -rf output
+	# Note we disable openrc pam support cause we don't need it.
+	# and libpam may slow down the user login into system
+	meson -Dpam=false \
+		-Dpkgconfig=true \
+		--default-library=both \
+		--libdir=/usr/lib/x86_64-linux-gnu  \
+		--prefix=/ \
+		--sysconfdir=/etc  \
+		--bindir=/usr/bin \
+		--sbindir=/usr/sbin . output
+	meson compile -C output
+	DESTDIR=${OUTPUT_DIR}/openrc_bin meson install -C output
+	OPENRC=${OUTPUT_DIR}/openrc_bin
+}
+
 build_busybox_static() {
 	echo "Enter function: ${FUNCNAME[0]} "
 
@@ -186,6 +215,17 @@ pack_deps() {
 		done
 	}
 
+	{
+		sync
+		cd ${WORKDIR}
+		cd ${OPENRC}
+		export OUTPUT_DIR
+		tar  -rvf "${OUTPUT_DIR}/deps.tar" ./*
+		local openrc_bins=$(file ./usr/sbin/* | grep ELF | cut -d ':' -f1 | xargs) 
+		LD_LIBRARY_PATH="./usr/lib/x86_64-linux-gnu"  \
+			 bash +x ${WORKDIR}/scripts/libs_packer.sh --pack "${openrc_bins}"
+	}
+
 	echo "Endof function: ${FUNCNAME[0]} "
 }
 
@@ -214,8 +254,10 @@ install_deps() {
 		cp /usr/sbin/ip6tables ${ovmrootfs}/usr/bin/
 
 		cd ${ovmrootfs}
-		tar -xvf "${OUTPUT_DIR}/deps.tar" -C ./
-
+		cp "${OUTPUT_DIR}/deps.tar" ${ovmrootfs}/
+		proot -0 -r  . /usr/bin/busybox tar -xvf /deps.tar -C /
+		proot -0 -r  . /usr/bin/busybox rm /deps.tar
+		proot -0 -r  . /usr/bin/busybox rm /etc/runlevels/default/{local,netmount}
 		cp -r /etc/ld.so* "${ovmrootfs}/etc/"
 		cp ${WORKDIR}/scripts/ovmd ${ovmrootfs}/opt/ovmd
 		chmod +x ${ovmrootfs}/opt/ovmd
@@ -323,6 +365,7 @@ main() {
 	if [[ "${CALLER_ID}" = "d9b59105e7569a37713aeadb493ca01a3779747f" ]]; then
 		cd "$WORKDIR"
 		build_busybox_static
+		build_openec
 		build_podman
 		make_netavark
 		get_conmon
