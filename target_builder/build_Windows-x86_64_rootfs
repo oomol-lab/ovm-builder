@@ -236,6 +236,15 @@ pack_deps() {
 		bash +x ${WORKDIR}/scripts/libs_packer.sh --pack /usr/bin/tee
 	}
 
+	{
+		# we don't use busybox built-in dmesg
+		# The buysbox dmesg does not support continuous print kernel message
+		sync
+		cd ${WORKDIR}
+		export OUTPUT_DIR
+		bash +x ${WORKDIR}/scripts/libs_packer.sh --pack /usr/bin/dmesg
+	}
+
 	echo "Endof function: ${FUNCNAME[0]} "
 }
 
@@ -280,7 +289,6 @@ install_deps() {
 }
 
 write_podman_config() {
-
 	mkdir -p "${ovmrootfs}/etc/containers"
 	cp "${OUTPUT_DIR}/podman_src/pkg/machine/ocipull/policy.json" "${ovmrootfs}/etc/containers/policy.json"
 	echo '
@@ -337,7 +345,20 @@ start_pre() {
 start_post() {
         start_containers
 }' > "${ovmrootfs}/etc/init.d/podman"
-chmod +x "${ovmrootfs}/etc/init.d/podman"
+	chmod +x "${ovmrootfs}/etc/init.d/podman"
+
+	echo '#!/usr/sbin/openrc-run
+supervisor=supervise-daemon
+
+name="OVM kernel logger"
+description="Kernel logger wactcher"
+
+command="/usr/bin/dmesg"
+command_args="-w"
+output_logger="/opt/logger_wrapper.sh stdout"
+error_logger="/opt/logger_wrapper.sh stdout"
+' >"${ovmrootfs}/etc/init.d/ovmkernelogger"
+	 chmod +x "${ovmrootfs}/etc/init.d/ovm-kerne-logger"
 }
 
 make_wsl_rootfs() {
