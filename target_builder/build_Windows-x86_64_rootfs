@@ -296,6 +296,35 @@ insecure = false
 }
 ' >"${ovmrootfs}/etc/containers/policy.json"
 
+	echo '#!/usr/sbin/openrc-run
+supervisor=supervise-daemon
+
+name="Podman API service"
+description="Listening service that answers API calls for Podman"
+
+command=/usr/bin/podman
+command_args="system service ${podman_opts:=--time 0} $podman_uri"
+output_logger="/opt/logger_wrapper.sh"
+error_logger="/opt/logger_wrapper.sh"
+
+extra_commands="start_containers"
+description_start_containers="Start containers with restart policy set to always"
+
+start_containers() {
+        ebegin "Starting containers with restart policy set to always"
+        /bin/sh -c "$command start --all --filter restart-policy=always"
+        eend $?
+}
+
+start_pre() {
+                einfo "Configured as rootful service"
+                checkpath -d -m 0755 /run/podman
+}
+
+start_post() {
+        start_containers
+}' > "${ovmrootfs}/etc/init.d/podman"
+chmod +x "${ovmrootfs}/etc/init.d/podman"
 }
 
 make_wsl_rootfs() {
@@ -320,6 +349,8 @@ make_wsl_rootfs() {
 	mkdir -p "${ovmrootfs}/root"
 	mkdir -p "${ovmrootfs}/opt"
 	mkdir -p "${ovmrootfs}/var/tmp"
+	# OpenRC need /var/run
+	mkdir -p "${ovmrootfs}/var/run"
 
 	cp "${BUSYBOX_BIN}" "${ovmrootfs}/usr/bin"
 	cd "${ovmrootfs}/usr/bin"
