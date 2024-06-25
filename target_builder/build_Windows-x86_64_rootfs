@@ -32,7 +32,7 @@ build_openec(){
 	cd "${WORKDIR}"	
 	local openrc_src="${OUTPUT_DIR}/openrc"
 	local repo="https://github.com/OpenRC/openrc"
-	local commit_id="4574b5d8e4cee1febfcef301c0c48723e12c5478"
+	local commit_id="4574b5d8e4cee1febfcef301c0c48723e12c5478" # 0.54
 	if [[ -d "${openrc_src}" ]]; then
 		echo ""
 	else
