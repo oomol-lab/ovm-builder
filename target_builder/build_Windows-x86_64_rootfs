@@ -226,6 +226,16 @@ pack_deps() {
 			 bash +x ${WORKDIR}/scripts/libs_packer.sh --pack "${openrc_bins}"
 	}
 
+	{
+		# we don't use busybox built-in tee
+		# The buysbox applet does not support renaming, 
+		# and tee does not support some standard tee features.
+		sync
+		cd ${WORKDIR}
+		export OUTPUT_DIR
+		bash +x ${WORKDIR}/scripts/libs_packer.sh --pack /usr/bin/tee
+	}
+
 	echo "Endof function: ${FUNCNAME[0]} "
 }
 
@@ -259,7 +269,10 @@ install_deps() {
 		proot -0 -r  . /usr/bin/busybox rm /deps.tar
 		proot -0 -r  . /usr/bin/busybox rm /etc/runlevels/default/{local,netmount}
 		cp -r /etc/ld.so* "${ovmrootfs}/etc/"
+		cp ${WORKDIR}/scripts/logger_wrapper.sh ${ovmrootfs}/opt/logger_wrapper.sh
 		cp ${WORKDIR}/scripts/ovmd ${ovmrootfs}/opt/ovmd
+		cd  ${ovmrootfs}/usr/bin 
+		ln -s tee tee-ovm
 		chmod +x ${ovmrootfs}/opt/ovmd
 	else
 		exit 100
