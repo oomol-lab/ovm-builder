@@ -357,8 +357,8 @@ command="/usr/bin/dmesg"
 command_args="-w"
 output_logger="/opt/logger_wrapper.sh stdout"
 error_logger="/opt/logger_wrapper.sh stdout"
-' >"${ovmrootfs}/etc/init.d/ovmkernelogger"
-	 chmod +x "${ovmrootfs}/etc/init.d/ovm-kerne-logger"
+' >"${ovmrootfs}/etc/init.d/ovm-kernel-logger"
+	 chmod +x "${ovmrootfs}/etc/init.d/ovm-kernel-logger"
 }
 
 make_wsl_rootfs() {
