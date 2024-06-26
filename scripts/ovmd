@@ -1,17 +1,19 @@
-#! /usr/bin/env sh
+#! /bin/sh
 PS4='Line ${LINENO}: '
 set -o pipefail
+set -m
 
 usage() {
 	echo "Usage: $0 -p <podman-http-port> -s <data-sector-counts> [--help]"
 	echo "  -p, --podman-http-port   <number>:    TCP port number of podman api service"
 	echo "  -s, --data-sector-counts <number>:    Sector counts of Data disk"
+	echo "  -k,--killall                     :    Kill all services"
 	echo "  --help                           :    Display this help message"
 	exit 100
 }
 
 parse_args() {
-	opts=$(getopt -o p:s:h --long podman-http-port:,data-sector-counts:,help -- "$@")
+	opts=$(getopt -o p:s:kh --long podman-http-port:,data-sector-counts:,killall,help -- "$@")
 
 	if [ $? -ne 0 ]; then
 		usage
@@ -21,6 +23,14 @@ parse_args() {
 
 	while true; do
 		case "$1" in
+		-h | --help)
+			usage
+			exit 0
+			;;
+		-k | --killall)
+			kill_all
+			exit 0
+			;;
 		-p | --podman-http-port)
 			podman_port_port="$2"
 			shift 2
@@ -28,9 +38,6 @@ parse_args() {
 		-s | --data-sector-counts)
 			data_sector_counts="$2"
 			shift 2
-			;;
-		-h | --help)
-			usage
 			;;
 		--)
 			shift
@@ -101,13 +108,9 @@ run_podman() {
 		exit 100
 	}
 	echo "Runing podman...."
-	mkdir -p /var/tmp # podman need this dir,so we make it
 	${podman_bin} system service --time=0 "tcp://127.0.0.1:${podman_port_port}"
 }
 
-kill_old_podman() {
-	killall podman 2>/dev/null
-}
 
 make_fs() {
 	BLKNODE="/dev/$BLKNAME"
@@ -136,13 +139,31 @@ make_fs() {
 	}
 }
 
+kill_all(){
+	podman stop -a
+	openrc stop_all
+	ret=$?
+	if [[ $ret -eq 0 ]]; then
+		echo "All services stoped"
+	else
+		echo "Kill services failed"
+		exit 100
+	fi
+}
+
+
 main() {
 	parse_args "$@"
-	kill_old_podman
 	get_blk_sector_count
 	make_fs
 	mount_disk
-	run_podman
+	# create dirs which openrc need
+	mkdir -p /var/run
+	mkdir -p /var/tmp
+	openrc stop_all
+	tee-ovm &
+	openrc default
+	fg %1
 }
 
 main "$@"
