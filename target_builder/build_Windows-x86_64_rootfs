@@ -54,6 +54,7 @@ build_openec(){
 		--sbindir=/usr/sbin . output
 	meson compile -C output
 	DESTDIR=${OUTPUT_DIR}/openrc_bin meson install -C output
+	mkdir -p ${OUTPUT_DIR}/openrc_bin/etc/runlevels/stop_all
 	OPENRC=${OUTPUT_DIR}/openrc_bin
 }
 
@@ -277,6 +278,7 @@ install_deps() {
 		proot -0 -r  . /usr/bin/busybox tar -xvf /deps.tar -C /
 		proot -0 -r  . /usr/bin/busybox rm /deps.tar
 		proot -0 -r  . /usr/bin/busybox rm /etc/runlevels/default/{local,netmount}
+
 		cp -r /etc/ld.so* "${ovmrootfs}/etc/"
 		cp ${WORKDIR}/scripts/logger_wrapper.sh ${ovmrootfs}/opt/logger_wrapper.sh
 		cp ${WORKDIR}/scripts/ovmd ${ovmrootfs}/opt/ovmd
@@ -346,6 +348,7 @@ start_post() {
         start_containers
 }' > "${ovmrootfs}/etc/init.d/podman"
 	chmod +x "${ovmrootfs}/etc/init.d/podman"
+proot -0 -r ${ovmrootfs} /usr/sbin/rc-update add podman default # enable in openrc default runlevel
 
 	echo '#!/usr/sbin/openrc-run
 supervisor=supervise-daemon
@@ -359,6 +362,7 @@ output_logger="/opt/logger_wrapper.sh stdout"
 error_logger="/opt/logger_wrapper.sh stdout"
 ' >"${ovmrootfs}/etc/init.d/ovm-kernel-logger"
 	 chmod +x "${ovmrootfs}/etc/init.d/ovm-kernel-logger"
+proot -0 -r ${ovmrootfs} /usr/sbin/rc-update add ovm-kernel-logger default # enable for openrc default runlevel
 }
 
 make_wsl_rootfs() {
