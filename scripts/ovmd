@@ -7,7 +7,7 @@ usage() {
 	echo "Usage: $0 -p <podman-http-port> -s <data-sector-counts> [--help]"
 	echo "  -p, --podman-http-port   <number>:    TCP port number of podman api service"
 	echo "  -s, --data-sector-counts <number>:    Sector counts of Data disk"
-	echo "  -k,--killall                     :    Kill all services"
+	echo "  -k, --killall                    :    Kill all services"
 	echo "  --help                           :    Display this help message"
 	exit 100
 }

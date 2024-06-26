@@ -348,7 +348,7 @@ start_post() {
         start_containers
 }' > "${ovmrootfs}/etc/init.d/podman"
 	chmod +x "${ovmrootfs}/etc/init.d/podman"
-proot -0 -r  ${ovmrootfs} /usr/sbin/rc-update add podman default # enable in openrc default runlevel
+proot -0 -r ${ovmrootfs} /usr/sbin/rc-update add podman default # enable in openrc default runlevel
 
 	echo '#!/usr/sbin/openrc-run
 supervisor=supervise-daemon
@@ -362,7 +362,7 @@ output_logger="/opt/logger_wrapper.sh stdout"
 error_logger="/opt/logger_wrapper.sh stdout"
 ' >"${ovmrootfs}/etc/init.d/ovm-kernel-logger"
 	 chmod +x "${ovmrootfs}/etc/init.d/ovm-kernel-logger"
-proot -0 -r  ${ovmrootfs} /usr/sbin/rc-update add ovm-kernel-logger default # enable for openrc default runlevel
+proot -0 -r ${ovmrootfs} /usr/sbin/rc-update add ovm-kernel-logger default # enable for openrc default runlevel
 }
 
 make_wsl_rootfs() {
