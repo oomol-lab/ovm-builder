@@ -151,13 +151,12 @@ kill_all(){
 	fi
 }
 
-
 main() {
 	parse_args "$@"
 	get_blk_sector_count
 	make_fs
 	mount_disk
-	# create dirs which openrc need
+	# create dirs which openrc needed
 	mkdir -p /var/run
 	mkdir -p /var/tmp
 	openrc stop_all
