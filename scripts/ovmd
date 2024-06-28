@@ -149,9 +149,9 @@ kill_all(){
 		echo "Kill services failed"
 		exit 100
 	fi
-	teeovm_pid=$(busybox ps aux| grep -v grep | grep tee-ovm| xargs| cut -d ' ' -f1)
+	teeovm_pid=$(busybox busybox ps -o comm,pid | grep -v grep | grep tee-ovm | xargs | cut -d ' ' -f2)
 	test -n ${teeovm_pid} && kill ${teeovm_pid}
-	ovmd_pid=$(busybox ps aux| grep -v grep | grep ovmd| xargs| cut -d ' ' -f1)
+	ovmd_pid=$(busybox busybox ps -o comm,pid | grep -v grep | grep ovmd | xargs | cut -d ' ' -f2)
 	test -n ${ovmd_pid} && kill ${ovmd_pid}
 }
 
