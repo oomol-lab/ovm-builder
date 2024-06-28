@@ -140,7 +140,7 @@ make_fs() {
 }
 
 kill_all(){
-	podman stop -a
+	podman stop -a 2>/dev/null
 	openrc stop_all
 	ret=$?
 	if [[ $ret -eq 0 ]]; then
@@ -149,6 +149,10 @@ kill_all(){
 		echo "Kill services failed"
 		exit 100
 	fi
+	teeovm_pid=$(busybox ps aux| grep -v grep | grep tee-ovm| xargs| cut -d ' ' -f1)
+	test -n ${teeovm_pid} && kill ${teeovm_pid}
+	ovmd_pid=$(busybox ps aux| grep -v grep | grep ovmd| xargs| cut -d ' ' -f1)
+	test -n ${ovmd_pid} && kill ${ovmd_pid}
 }
 
 main() {
