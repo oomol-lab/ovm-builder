@@ -62,7 +62,6 @@ build_openec(){
 	rm -rf ${OUTPUT_DIR}/openrc_bin/share/openrc/support/deptree2dot
 	rm -rf ${OUTPUT_DIR}/openrc_bin/share/openrc/support/init.d.examples
 	rm -rf ${OUTPUT_DIR}/openrc_bin/share/openrc/support/openvpn
-
 	OPENRC=${OUTPUT_DIR}/openrc_bin
 }
 
