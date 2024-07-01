@@ -45,6 +45,9 @@ build_openec(){
 	# Note we disable openrc pam support cause we don't need it.
 	# and libpam may slow down the user login into system
 	meson -Dpam=false \
+		-Dselinux=false \
+		-Dbash-completions=false \
+		-Dzsh-completions=false
 		-Dpkgconfig=true \
 		--default-library=both \
 		--libdir=/usr/lib/x86_64-linux-gnu  \
@@ -55,6 +58,11 @@ build_openec(){
 	meson compile -C output
 	DESTDIR=${OUTPUT_DIR}/openrc_bin meson install -C output
 	mkdir -p ${OUTPUT_DIR}/openrc_bin/etc/runlevels/stop_all
+	rm -rf ${OUTPUT_DIR}/openrc_bin/share/man
+	rm -rf ${OUTPUT_DIR}/openrc_bin/share/openrc/support/deptree2dot
+	rm -rf ${OUTPUT_DIR}/openrc_bin/share/openrc/support/init.d.examples
+	rm -rf ${OUTPUT_DIR}/openrc_bin/share/openrc/support/openvpn
+
 	OPENRC=${OUTPUT_DIR}/openrc_bin
 }
 
