@@ -149,10 +149,11 @@ kill_all(){
 		echo "Kill services failed"
 		exit 100
 	fi
-	teeovm_pid=$(busybox busybox ps -o comm,pid | grep -v grep | grep tee-ovm | xargs | cut -d ' ' -f2)
-	test -n ${teeovm_pid} && kill ${teeovm_pid}
-	ovmd_pid=$(busybox busybox ps -o comm,pid | grep -v grep | grep ovmd | xargs | cut -d ' ' -f2)
-	test -n ${ovmd_pid} && kill ${ovmd_pid}
+	ovmd_pid=$(busybox busybox ps -o comm,pid | grep -v grep | grep -v "$$" | grep ovmd | xargs | cut -d ' ' -f2)
+	test -n ${ovmd_pid} && {
+ 		echo "Kill pid ${ovmd_pid} of ovmd !"
+	       	kill ${ovmd_pid} >/dev/null 2>&1
+	}
 }
 
 main() {
@@ -164,9 +165,10 @@ main() {
 	mkdir -p /var/run
 	mkdir -p /var/tmp
 	openrc stop_all
-	tee-ovm &
 	openrc default
-	fg %1
+	while true; do
+		sleep 1
+	done
 }
 
 main "$@"
