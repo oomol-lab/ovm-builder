@@ -148,6 +148,7 @@ kill_all(){
 }
 
 main() {
+	kill_all
 	parse_args "$@"
 	get_blk_sector_count
 	make_fs
@@ -156,7 +157,6 @@ main() {
 	# create dirs which openrc needed
 	mkdir -p /var/run
 	mkdir -p /var/tmp
-	openrc stop_all
 	openrc default
 	while true; do
 		sleep 1
