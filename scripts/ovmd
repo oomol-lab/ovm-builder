@@ -32,7 +32,7 @@ parse_args() {
 			exit 0
 			;;
 		-p | --podman-http-port)
-			podman_port_port="$2"
+			podman_port="$2"
 			shift 2
 			;;
 		-s | --data-sector-counts)
@@ -50,7 +50,7 @@ parse_args() {
 		esac
 	done
 
-	if [[ -z "${podman_port_port}" ]]; then
+	if [[ -z "${podman_port}" ]]; then
 		echo "Need -p/--podman-http-port"
 		exit 100
 	fi
@@ -60,7 +60,7 @@ parse_args() {
 		exit 100
 	fi
 
-	echo "INFO: PODMAN API LISTEN PORT: ${podman_port_port}, DATA SECTOR SIZE: ${data_sector_counts}"
+	echo "INFO: PODMAN API LISTEN PORT: ${podman_port}, DATA SECTOR SIZE: ${data_sector_counts}"
 }
 
 get_blk_sector_count() {
@@ -99,18 +99,9 @@ mount_disk() {
 	fi
 }
 
-run_podman() {
-	local podman_bin="/usr/bin/podman"
-
-	test -f ${podman_bin} && {
-		echo -n ""
-	} || {
-		exit 100
-	}
-	echo "Runing podman...."
-	${podman_bin} system service --time=0 "tcp://127.0.0.1:${podman_port_port}"
+write_podman_config() {
+        echo podman_uri="tcp://localhost:${podman_port}" > /etc/conf.d/podman
 }
-
 
 make_fs() {
 	BLKNODE="/dev/$BLKNAME"
@@ -161,6 +152,7 @@ main() {
 	get_blk_sector_count
 	make_fs
 	mount_disk
+	write_podman_config
 	# create dirs which openrc needed
 	mkdir -p /var/run
 	mkdir -p /var/tmp
