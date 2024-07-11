@@ -356,9 +356,9 @@ command="/usr/bin/dmesg"
 command_args="-w"
 output_logger="/opt/logger_wrapper.sh stdout"
 error_logger="/opt/logger_wrapper.sh stdout"
-' >"${ovmrootfs}/etc/init.d/ovm-kernel-logger"
-	 chmod +x "${ovmrootfs}/etc/init.d/ovm-kernel-logger"
-proot -0 -r ${ovmrootfs} /usr/sbin/rc-update add ovm-kernel-logger default # enable for openrc default runlevel
+' >"${ovmrootfs}/etc/init.d/kernel"
+	 chmod +x "${ovmrootfs}/etc/init.d/kernel"
+proot -0 -r ${ovmrootfs} /usr/sbin/rc-update add kernel default # enable for openrc default runlevel
 }
 
 make_wsl_rootfs() {
