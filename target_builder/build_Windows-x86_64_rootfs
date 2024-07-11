@@ -45,9 +45,9 @@ build_openec(){
 	# Note we disable openrc pam support cause we don't need it.
 	# and libpam may slow down the user login into system
 	meson -Dpam=false \
-		-Dselinux=false \
+		-Dselinux=disabled \
 		-Dbash-completions=false \
-		-Dzsh-completions=false
+		-Dzsh-completions=false \
 		-Dpkgconfig=true \
 		--default-library=both \
 		--libdir=/usr/lib/x86_64-linux-gnu  \
