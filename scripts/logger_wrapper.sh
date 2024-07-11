@@ -21,17 +21,17 @@ test -z ${OVMD_PID} && {
 
 logger_stdout() {
 	test ${LOG_TYPE} = "process" && {
-		busybox awk '{ print ENVIRON["RC_SVCNAME"] " " $0 }' >/proc/${OVMD_PID}/fd/1
+		busybox awk '{ print ENVIRON["RC_SVCNAME"] " > " $0 }' >/proc/${OVMD_PID}/fd/1
 	} || {
-		busybox awk '{ print ENVIRON["RC_SVCNAME"] " " $0 }' >>/tmp/ovm_log_stdout.log
+		busybox awk '{ print ENVIRON["RC_SVCNAME"] " > " $0 }' >>/tmp/ovm_log_stdout.log
 	}
 }
 
 logger_stderr() {
 	test ${LOG_TYPE} = "process" && {
-		busybox awk '{ print ENVIRON["RC_SVCNAME"] " " $0 }' >/proc/${OVMD_PID}/fd/2
+		busybox awk '{ print ENVIRON["RC_SVCNAME"] " > " $0 }' >/proc/${OVMD_PID}/fd/2
 	} || {
-		busybox awk '{ print ENVIRON["RC_SVCNAME"] " " $0 }' >>/tmp/ovm_log_stderr.log
+		busybox awk '{ print ENVIRON["RC_SVCNAME"] " > " $0 }' >>/tmp/ovm_log_stderr.log
 	}
 }
 
