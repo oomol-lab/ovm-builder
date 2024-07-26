@@ -1,207 +1,134 @@
 #!/usr/bin/bash
-
-initialize_var() {
+parse_profile() {
 	export LC_ALL=en_US.UTF8
+	# Only support Linux 
 	HOST_MACHINE="$(uname -s)"
 	HOST_ARCH="$(uname -p)"
-
-	CONFIG_YAML="./config.yaml"
-
-	pushd . >/dev/null
-	SCRIPT_PATH="${BASH_SOURCE[0]}"
-	while ([ -h "${SCRIPT_PATH}" ]); do
-		cd "$(dirname "${SCRIPT_PATH}")"
-		SCRIPT_PATH="$(readlink "$(basename "${SCRIPT_PATH}")")"
-	done
-	cd "$(dirname "${SCRIPT_PATH}")" >/dev/null
-	SCRIPT_PATH="$(pwd)"
-	popd >/dev/null
-
-	# set var inited flag
-	VAR_INITED=true
+	profile_dir="$_cwd_/target_builder/"
+	set +x
+	source "$profile_dir/${target_profile}.sh"
+	set -x
 }
 
-# First initialize var
-
-_check_return_code_() {
-	res="$?"
-	if [ "$res" -ne 0 ]; then
-		exit 202
+# Must called from func install_hosts_tools
+_build_proot(){
+	if [[ ! $callid = "T0Rrek1nbz0K" ]];then
+		exit 100
 	fi
-}
+	proot_src=$output/proot_src
 
-_valid_arch_() {
-	case ${arch} in
-	"x86_64" | "arm64")
-		#echo "	!!The string is valid: ${arch}!!"
-		;;
-	*)
-		#echo "	!!The string is not valid: ${arch}!!"
-		exit 100
-		;;
-	esac
-
-}
-_valid_plt_() {
-	case ${plt} in
-	"Windows" | "Linux" | "Drawin")
-		#echo "	!!The string is valid: ${plt}!!"
-		;;
-	*)
-		#echo "	!!The string is not valid: ${plt}!!"
-		exit 100
-		;;
-	esac
-}
-
-install_tools() {
-	echo "------------  ${FUNCNAME[0]} ------------"
-
-	ya_amd64_downloadurl="https://github.com/mikefarah/yq/releases/download/v4.44.1/yq_linux_amd64"
-	ya_arm64_downloadurl="https://github.com/mikefarah/yq/releases/download/v4.44.1/yq_linux_arm64"
-
-	cd "${SCRIPT_PATH}"
-
-	if [[ "$HOST_MACHINE" == "Linux" ]] && [[ -f "/usr/bin/dpkg" ]]; then # Debian pr Ubuntu
-		DEBS+=(
-			"git" "tar" "coreutils" "gzip" "libncurses-dev" "util-linux"  "meson" "ninja-build"
-			"bzip2" "rustc" "protobuf-compiler" "busybox" "e2fsprogs" "libcap-dev"
-			"locales-all" "make" "bzip2" "pkg-config" "libseccomp-dev"
-			"libgpgme-dev" "cargo" "libarchive-dev" "libtalloc-dev" "uthash-dev"
-			"libglib2.0-dev" "libseccomp-dev" "pkg-config" "runc" "iptables" "curl" "openssl"
-		)
-
-		if [[ "${HOST_ARCH}" == "arm64" ]] || [[ "${HOST_ARCH}" == "aarch64" ]]; then
-			DEBS+=("gcc-x86-64-linux-gnu" "g++-x86-64-linux-gnu")
-			wget -c ${ya_arm64_downloadurl} --output-document ./tools/yq_linux_arm64
-			_check_return_code_
-			chmod +x ./tools/yq_linux_arm64
-			_check_return_code_
-		fi
-
-		if [[ "${HOST_ARCH}" == "amd64" ]] || [[ "${HOST_ARCH}" == "x86_64" ]]; then
-			mkdir -p ./tools
-			DEBS+=("gcc-aarch64-linux-gnu" "g++-aarch64-linux-gnu")
-			ARCH_AMD64=amd64
-			wget -c ${ya_amd64_downloadurl} --output-document ./tools/yq_linux_amd64
-			_check_return_code_
-			chmod +x ./tools/yq_linux_amd64
-			_check_return_code_
-			wget -c https://go.dev/dl/go1.22.3.linux-amd64.tar.gz --output-document ./tools/go1.22.3.linux-amd64.tar.gz
-			_check_return_code_
-			test -f ./tools/go1.22.3.linux-amd64/go/bin/go || {
-				mkdir -p ./tools/go1.22.3.linux-amd64/
-				tar -xvf ./tools/go1.22.3.linux-amd64.tar.gz -C ./tools/go1.22.3.linux-amd64
-			}
-			test -f ./tools/go1.22.3.linux-amd64/go/bin/go &&
-				export PATH="${SCRIPT_PATH}/tools/:${SCRIPT_PATH}/tools/go1.22.3.linux-amd64/go/bin:${PATH}"
-		fi
-
-		for pkg in "${DEBS[@]}"; do
-			echo "List installed packages..."
-			dpkg -l | grep ${pkg}
-			rtvalue=$?
-			if [[ "$rtvalue" -eq 0 ]]; then
-				continue
-			else
-				echo "Please install ${pkg}:"
-				echo "sudo apt install ${pkg}"
-				exit 100
-			fi
-		done
+	if [[ -d $proot_src ]];then
+		set -xe 
+		cd $proot_src
+		make -C src loader.elf build.h
+		make -C src proot
+		set +xe
 	else
-		echo "Only support Ubuntu x86_64 & arm64"
-		exit 100
+		set -xe 
+		git clone --depth 1 https://github.com/proot-me/proot $proot_src
+		cd $proot_src
+		make -C src loader.elf build.h
+		make -C src proot
+		set +xe
 	fi
-
-	echo "------------ Endof function: ${FUNCNAME[0]} ------------"
-	echo ""
+	PATH="$proot_src/src:$PATH"
+	set -xe 
+	proot --version
+	cd $_cwd_
+	set +xe
 }
 
-parseConfigAndCreateDir() {
-	echo "------------  ${FUNCNAME[0]} ------------"
-	cd "${SCRIPT_PATH}"
-
-	if [[ -f "${CONFIG_YAML}" ]]; then
-		echo "- Use CONIFH: ${CONFIG_YAML}"
-		TARGET_PLATFORM=$(./tools/yq_linux_"${ARCH_AMD64}" '.TARGET_PLATFORM[]' config.yaml)
-		_check_return_code_
-		TARGET_ARCH=$(./tools/yq_linux_"${ARCH_AMD64}" '.TARGET_ARCH[]' config.yaml)
-		_check_return_code_
-
-		# Clean unexpect strings
-		TARGET_PLATFORM=$(echo "${TARGET_PLATFORM}" | xargs | tr -c -d '[:alnum:]_ ')
-		TARGET_ARCH=$(echo "${TARGET_ARCH}" | xargs | tr -c -d '[:alnum:]_ ')
-
-		for plt in ${TARGET_PLATFORM}; do
-			_valid_plt_ # Valid target platform
-			for arch in ${TARGET_ARCH}; do
-				_valid_arch_ # Valid target arch
-			done
-		done
-
-		echo "- TARGET_PLATFORM: ${TARGET_PLATFORM}"
-		echo "- TARGER_ARCH: ${TARGET_ARCH}"
-
-		OVMCORE_PLATFORM=""
-		for plt in ${TARGET_PLATFORM}; do
-			for arch in ${TARGET_ARCH}; do
-				OVMCORE_PLATFORM="$OVMCORE_PLATFORM $plt-$arch"
-			done
-		done
-		#echo "- Targets List: $OVMCORE_PLATFORM"
-	fi
-	echo "------------ Endof function: ${FUNCNAME[0]} ------------"
-	echo ""
-
+install_hosts_tools() {
+	set -x
+	sudo apt install libarchive-dev libtalloc-dev uthash-dev gcc make git wget tar xz-utils
+	set +x 
+	callid="T0Rrek1nbz0K" _build_proot
 }
-
-build_proot() {
-	local proot_src="${SCRIPT_PATH}/tools/proot_src"
-	local repo="https://github.com/proot-me/proot"
-	test -d "${proot_src}" || git clone "${repo}" "${proot_src}"
-	_check_return_code_
-	cd "${proot_src}"
-	make -C src loader.elf build.h
-	_check_return_code_
-	make -C src proot care
-	_check_return_code_
-
-	if [[ -f ${proot_src}/src/proot ]]; then
-		cp "${proot_src}/src/proot" "${SCRIPT_PATH}/tools/"
-	fi
-}
-
+usage() {
+	echo '
+# Envs:
+#   NULL
+# Args:
+#   arg[1] [amd64_wsl,arm64_macos]
 #
-# For now only support target: WSL2
-#
-build_each_platform() {
-	echo "------------  ${FUNCNAME[0]} ------------"
-	cd "${SCRIPT_PATH}"
-	echo "Build targer: ${OVMCORE_PLATFORM}"
-	for target in ${OVMCORE_PLATFORM}; do
-		builder="./target_builder/build_${target}_rootfs"
-		test -f "${builder}" &&
-			HOST_ARCH="${HOST_ARCH}" \
-				HOST_MACHINE="${HOST_MACHINE}" \
-				TARGET="${target}" \
-				CALLER_ID="d9b59105e7569a37713aeadb493ca01a3779747f" \
-				WORKDIR="$SCRIPT_PATH" \
-				PATH=${PATH} \
-				PS4='Line ${LINENO}: ' \
-				bash +x "./target_builder/build_${target}_rootfs"
-	done
-	echo "------------ Endof function: ${FUNCNAME[0]} ------------"
+# example: ./make amd64_wsl 
+'
+}
+
+# export rootfs_path
+bootstrap_alpine(){
+	set -xe
+	# Note the workdir changed to $output
+	cd $output
+	rootfs_name=$(echo ${rootfs_url} | cut -d ':' -f1)
+	rootfs_url=$(echo ${rootfs_url} | cut -d ':' -f2-)
+	wget -c $rootfs_url --output-document=$rootfs_name
+	rm -rf rootfs_extracted
+	mkdir rootfs_extracted
+	tar -xvf $rootfs_name -C ./rootfs_extracted > /dev/null 2>&1
+	cd rootfs_extracted
+	rootfs_path=$(pwd) 
+	export rootfs_path
+	# Note the workdir changed to $_cwd
+	cd $_cwd_
+	set +xe
+}
+
+install_package_into_rootfs(){
+	cd $_cwd_
+	pkgs=$(echo $preinstalled_packages |xargs )
+	set -xe
+	proot --rootfs=${rootfs_path} \
+		-b /dev:/dev \
+		-b /sys:/sys \
+		-b /proc:/proc \
+		-w /root \
+		-0 /bin/su -c "sed -i 's/dl-cdn.alpinelinux.org/mirrors.tuna.tsinghua.edu.cn/g' /etc/apk/repositories"
+	proot --rootfs=${rootfs_path} \
+		-b /dev:/dev \
+		-b /sys:/sys \
+		-b /proc:/proc \
+		-w /root \
+		-0 /bin/su -c "apk update ; apk add $pkgs"
+	set -xe
+}
+
+pack_rootfs(){
+	# Note we changed work dir to $rootfs_path
+	cd $rootfs_path
+	file_list="$(ls . | xargs)"
+
+	set -xe
+	sudo tar --zstd -cvf "/tmp/rootfs_extracted.tar.zst" $file_list > /dev/null
+	sudo tar -Jcvf       "/tmp/rootfs_extracted.tar.xz" $file_list  > /dev/null
+	cp /tmp/rootfs_extracted.tar.zst $output
+	cp /tmp/rootfs_extracted.tar.xz  $output
+	set +xe
+
+	echo " --- $target_profile ---"
+	echo "rootfs: $output/rootfs_extracted.tar.zst"
+	echo "rootfs: $output/rootfs_extracted.tar.xz"
 	echo ""
 }
 
 main() {
-	initialize_var
-	cd "${SCRIPT_PATH}"
-	install_tools
-	build_proot
-	parseConfigAndCreateDir
-	build_each_platform
+	# Work dir
+	_cwd_=$(dirname $0)
+	cd $_cwd_
+	_cwd_=$(pwd)
+	output=${_cwd_}/output
+	mkdir -p ${output}
+
+	if [[ $# -eq 1 ]];then
+		target_profile=$1
+	else
+		usage
+	fi
+	parse_profile
+	install_hosts_tools
+	bootstrap_alpine
+	install_package_into_rootfs
+	pack_rootfs
 }
 
-main
+main "$@"
