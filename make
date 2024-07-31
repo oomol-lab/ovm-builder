@@ -7,6 +7,7 @@ parse_profile() {
 	profile_dir="$_cwd_/target_builder/"
 	set +x
 	source "$profile_dir/${target_profile}.sh"
+	is_profile_loaded=true
 	set -x
 }
 
@@ -36,6 +37,13 @@ _build_proot(){
 	proot --version
 	cd $_cwd_
 	set +xe
+}
+
+
+profile_funcs(){
+	if [[ ${is_profile_loaded} = true ]];then
+		intended_func
+	fi
 }
 
 install_hosts_tools() {
@@ -128,6 +136,7 @@ main() {
 	install_hosts_tools
 	bootstrap_alpine
 	install_package_into_rootfs
+	profile_funcs
 	pack_rootfs
 }
 

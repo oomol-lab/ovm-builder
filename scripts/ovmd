@@ -1,4 +1,4 @@
-#! /bin/sh
+#! /usr/bin/env bash
 PS4='Line ${LINENO}: '
 set -o pipefail
 set -m
@@ -148,6 +148,7 @@ kill_all(){
 }
 
 main() {
+	export PODMAN_IGNORE_CGROUPSV1_WARNING=1
 	kill_all
 	parse_args "$@"
 	get_blk_sector_count
