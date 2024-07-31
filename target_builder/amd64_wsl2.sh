@@ -35,6 +35,8 @@ intended_func() {
 		echo -n "${podman_init_rc}"       > "${rootfs_path}/etc/init.d/podman"
 		echo -n "${podman_init_rc_confd}" > "${rootfs_path}/etc/conf.d/podman"
 	fi
+	# Create stop_all runlevel
+	mkdir -p "${rootfs_path}/etc/runlevels/stop_all"
 }
 
 podman_init_rc='#!/sbin/openrc-run
