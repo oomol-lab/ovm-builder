@@ -3,5 +3,6 @@ A simple & clean & pure bash script used to build ovmcore for WSL2 :)
 
 # How to Build
 ```sh
-$ ./make
+# Must in root
+# ./make amd64_wsl2
 ```

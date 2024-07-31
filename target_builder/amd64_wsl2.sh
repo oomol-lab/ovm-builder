@@ -32,13 +32,12 @@ intended_func() {
 		touch "${rootfs_path}/etc/init.d/podman"
 		touch "${rootfs_path}/etc/conf.d/podman"
 		set +x
-		echo "${podman_init_rc}"       > "${rootfs_path}/etc/init.d/podman"
-		echo "${podman_init_rc_confd}" > "${rootfs_path}/etc/conf.d/podman"
+		echo -n "${podman_init_rc}"       > "${rootfs_path}/etc/init.d/podman"
+		echo -n "${podman_init_rc_confd}" > "${rootfs_path}/etc/conf.d/podman"
 	fi
 }
 
-podman_init_rc='
-#!/sbin/openrc-run
+podman_init_rc='#!/sbin/openrc-run
 supervisor=supervise-daemon
 
 name="Podman API service"
@@ -74,8 +73,7 @@ start_post() {
 }
 '
 
-podman_init_rc_confd='
-# Configuration for /etc/init.d/podman
+podman_init_rc_confd='# Configuration for /etc/init.d/podman
 
 # See podman-system-service(1) for service description
 # and available options.
