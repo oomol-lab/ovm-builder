@@ -3,6 +3,7 @@ PS4='Line ${LINENO}: '
 set -o pipefail
 set -m
 
+trap cleanup SIGINT SIGTERM
 usage() {
 	echo "Usage: $0 -p <podman-http-port> -s <data-sector-counts> [--help]"
 	echo "  -p, --podman-http-port   <number>:    TCP port number of podman api service"
@@ -14,13 +15,10 @@ usage() {
 
 parse_args() {
 	opts=$(getopt -o p:s:kh --long podman-http-port:,data-sector-counts:,killall,help -- "$@")
-
 	if [ $? -ne 0 ]; then
 		usage
 	fi
-
 	eval set -- "$opts"
-
 	while true; do
 		case "$1" in
 		-h | --help)
@@ -28,7 +26,8 @@ parse_args() {
 			exit 0
 			;;
 		-k | --killall)
-			kill_all
+			func_kill_ovmd
+			func_kill_service
 			exit 0
 			;;
 		-p | --podman-http-port)
@@ -60,105 +59,193 @@ parse_args() {
 		exit 100
 	fi
 
-	echo "INFO: PODMAN API LISTEN PORT: ${podman_port}, DATA SECTOR SIZE: ${data_sector_counts}"
+	UUID="8a3219d0-4002-4cd9-8cb1-f3ffe52451f1"
+
+	echo "INFO: PODMAN API LISTEN PORT: ${podman_port}"
+	echo "INFO: DATA SECTOR SIZE: ${data_sector_counts}"
+	echo "INFO: BLOCK UUID=${UUID}"
 }
 
-get_blk_sector_count() {
-	block_with_sector_counts=$(ls /sys/block/*/size)
-	for blk in ${block_with_sector_counts}; do
-		sector_counts="$(cat ${blk})"
-		blkname=$(dirname ${blk})
+func_kill_ovmd() {
+	this_pid=$$
+	echo "Current ovmd pid: $this_pid"
+	rs=$(ps -eo pid:10,comm,args)
+	rs=$(echo -n "$rs" | grep ovmd | grep -v grep)
+	rs=$(echo -n "$rs" | grep -v ${this_pid} | awk '{print $1}')
+	rs=$(echo -n "$rs" | xargs)
+	old_ovmd_pid="${rs}"
+	if [[ -n ${old_ovmd_pid} ]]; then
+		echo "kill old ovmd: ${old_ovmd_pid}"
+		kill ${old_ovmd_pid}
+	fi
+}
 
+func_kill_service() {
+	PODMAN_IGNORE_CGROUPSV1_WARNING=1 podman stop -a
+	ret=$?
+	test $ret -eq 0 && echo "All containers stoped" || {
+		echo "Containers stop failed"
+		exit 100
+	}
+
+	openrc stop_all
+	ret=$?
+	test $ret -eq 0 && echo "All openrc services stoped" || {
+		echo "Some openrc service stop failed"
+		exit 100
+	}
+}
+
+# kill old ovmd and stop all openrc services
+prerun() {
+	func_kill_ovmd
+	func_kill_service
+}
+
+cleanup() {
+	echo "Caught signal, cleaning up..."
+	func_kill_service
+	exit 0
+}
+
+# If find right disk, export BLKNAME
+# find_disk have no outcall
+find_disk() {
+	data_sector_counts=$1
+	block_with_sector_counts=$(find /sys/block/*/size -type f)
+	for blk in ${block_with_sector_counts}; do
+		sector_counts="$(<${blk})"
+		blkname=$(dirname ${blk})
 		if [[ "${data_sector_counts}" = "${sector_counts}" ]]; then
 			BLKNAME=$(basename ${blkname}) # BLKNAME is target block !!
-			echo "Data block is $BLKNAME, Sector count $data_sector_counts"
+			BLKNAME="/dev/$BLKNAME"
+			echo "find_disk(): Data block is $BLKNAME, Sector count $data_sector_counts"
 			return
 		fi
 	done
 
-	echo "No block with sector counts: ${data_sector_counts}"
+	echo "find_disk(): No block with sector counts: ${data_sector_counts}"
 	exit 100
 }
-
+# mount ${BLKNAME} to ${mountpoint}
+# mount_disk esure the ${mountpoint} not be mount again
+# mount_disk have no outcall
 mount_disk() {
-	mountpoint="/var"
-	mountpatten="^${mountpoint}"
-	busybox mount | cut -d ' ' -f3 | grep ${mountpatten} >/dev/null
+	cd /
+	mountpoint=$1
+	findmnt -o SOURCE,TARGET,UUID --kernel --raw | grep -w ${BLKNAME} | grep -w ${mountpoint}
 	ret=$?
 	if [[ $ret -eq 0 ]]; then
-		echo "$mountpoint is mounted !"
+		echo "mount_disk(): $BLKNAME already mount in ${mountpoint}"
+		echo -n "mount_disk(): "
+		findmnt -o SOURCE,TARGET,UUID --kernel --raw | grep -w ${BLKNAME} | grep -w ${mountpoint}
+		return
+	fi
+
+	if [[ -n ${mountpoint} ]]; then
+		echo "mount_disk(): mount ${BLKNAME} into ${mountpoint}"
+		set -ex
+		mkdir -p ${mountpoint}
+		mount $BLKNAME $mountpoint
+		set +ex
+	else
+		echo "mount_disk(): Error: env mountpoint is empty"
+		exit 100
+	fi
+}
+# umount_disk umount disk ${BLKNAME} with mountpoint ${mountpoint}
+# umount_disk have no outcall
+umount_disk() {
+	cd /
+	mountpoint=$1
+	findmnt -o SOURCE,TARGET,UUID --kernel --raw | grep -w ${BLKNAME} | grep -w ${mountpoint} >/dev/null
+	ret=$?
+	if [[ $ret -ne 0 ]]; then
+		echo -n "umount_disk(): "
+		echo "$BLKNAME not mount in ${mountpoint}, skip"
 		return
 	else
-		busybox mount /dev/$BLKNAME $mountpoint
-		test $? -eq 0 && {
-			echo "Mount ${BLKNAME} success"
-		} || {
-			echo "Mount ${BLKNAME} failed"
-			exit 100
-		}
+		echo -n "umount_disk(): "
+		echo "Try to umount $mountpoint"
+		set -ex
+		umount $mountpoint
+		set +ex
 	fi
+}
+
+disk_format() {
+	UUID=$1
+	if [[ -n ${UUID} ]]; then
+		msg=$(/sbin/blkid -U ${UUID} | sed 's#\n##g')
+		if [[ -n $msg ]]; then
+			echo "disk_format(): Find $(blkid -U ${UUID}) with ${UUID}, skip format"
+			return
+		else
+			echo "disk_format(): Format ${BLKNAME}"
+			set -ex
+			/sbin/mkfs.ext4 -U ${UUID} -F ${BLKNAME}
+			set +ex
+			return
+		fi
+	else
+		echo "disk_format(): Error: env UUID empty, this should not happend"
+		exit 100
+	fi
+}
+
+copy_var_data() {
+	echo "copy_var_data(): Sync all file in /var/* to ${BLKNAME}"
+	local s=$1
+	local d=$2
+
+	if [[ -f "${d}/.ovm_data_disk" ]]; then
+		echo "copy_var_data(): find .ovm_data_disk in ${s}, skip sync file"
+		return
+	fi
+
+	set -x
+	cd ${s}/
+	tar -cvf /var.tar.xz $(/bin/ls .)
+	sync
+	cd ${d}/
+	tar -xvf /var.tar.xz
+	set +x
+	echo "copy_var_data(): create a mark file .ovm_data_disk"
+	set -x
+	touch .ovm_data_disk
+	set +x
 }
 
 write_podman_config() {
-        echo podman_uri="tcp://localhost:${podman_port}" > /etc/conf.d/podman
-}
-
-make_fs() {
-	BLKNODE="/dev/$BLKNAME"
-	UUID="8a3219d0-4002-4cd9-8cb1-f3ffe52451f1"
-	findfs_bin="/usr/bin/findfs"
-
-	${findfs_bin} UUID=${UUID} >/dev/null 2>&1 
-	test $? -eq 0 && {
-		echo "Find ${BLKNODE} with  ${UUID}"
-		return
-	} || {
-		echo "${BLKNODE} UUID not correct, try to make filesystem with uuid ${UUID}"
-	}
-
-	mkfs_bin="/usr/sbin/mkfs.ext4"
-	test -f ${mkfs_bin} && echo "Try to make filesystem $BLKNAME" || {
-		echo "${mkfs_bin} not find !!"
-		exit 100
-	}
-
-	echo "${mkfs_bin} -U ${UUID} -F ${BLKNODE}"
-	${mkfs_bin} -U "${UUID}" -F ${BLKNODE}
-	test $? -eq 0 && echo "make ext4 ${BLKNODE} done" || {
-		echo "make ext4 ${BLKNODE} failed"
-		exit 100
-	}
-}
-
-kill_all(){
-	podman stop -a 2>/dev/null
-	openrc stop_all
-	ret=$?
-	if [[ $ret -eq 0 ]]; then
-		echo "All services stoped"
-	else
-		echo "Kill services failed"
-		exit 100
-	fi
-	ovmd_pid=$(busybox busybox ps -o comm,pid | grep -v grep | grep -v "$$" | grep ovmd | xargs | cut -d ' ' -f2)
-	test -n ${ovmd_pid} && {
- 		echo "Kill pid ${ovmd_pid} of ovmd !"
-	       	kill ${ovmd_pid} >/dev/null 2>&1
+	echo -n "write_podman_config(): "
+	echo "write podman's configure"
+	{
+		echo podman_uri="tcp://localhost:${podman_port}" >/etc/conf.d/podman
+		echo 'podman_user="root"' >>/etc/conf.d/podman
+		echo 'podman_opts="--time 0"' >>/etc/conf.d/podman
+		echo '# autoconfigure by /opt/ovmd' >>/etc/conf.d/podman
 	}
 }
 
 main() {
-	export PODMAN_IGNORE_CGROUPSV1_WARNING=1
-	kill_all
 	parse_args "$@"
-	get_blk_sector_count
-	make_fs
-	mount_disk
+	prerun
+	find_disk ${data_sector_counts}
+	disk_format ${UUID}
+
+	# Copy /var/* into ${BLKNAME}
+	{
+		mount_disk /tmp/ovm_var
+		copy_var_data /var /tmp/ovm_var
+		umount_disk /tmp/ovm_var
+	}
+	# Finally mount ${BLKNAME} to /var
+	{
+		mount_disk /var
+	}
 	write_podman_config
-	# create dirs which openrc needed
-	mkdir -p /var/run
-	mkdir -p /var/tmp
 	openrc default
+	echo "main(): wait....."
 	while true; do
 		sleep 1
 	done

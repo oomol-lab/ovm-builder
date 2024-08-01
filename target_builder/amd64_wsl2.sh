@@ -10,6 +10,9 @@ preinstalled_packages="
 	podman
 	busybox-mdev-openrc
 	dmesg
+	procps
+	findmnt
+	blkid
 	mount
 	"
 # rootfs_name:download_url
