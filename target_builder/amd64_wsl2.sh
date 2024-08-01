@@ -8,6 +8,7 @@ preinstalled_packages="
 	bash
 	openrc
 	podman
+	e2fsprogs
 	busybox-mdev-openrc
 	dmesg
 	procps
@@ -29,14 +30,33 @@ sha1sum="
 
 # this profile only !
 intended_func() {
-	echo "($basename $0): write /etc/init.d/podman"
 	if [[ -n ${rootfs_path} ]]; then
+		echo "($basename $0): write /etc/init.d/podman"
+
 		set -x
 		touch "${rootfs_path}/etc/init.d/podman"
 		touch "${rootfs_path}/etc/conf.d/podman"
 		set +x
-		echo -n "${podman_init_rc}"       > "${rootfs_path}/etc/init.d/podman"
-		echo -n "${podman_init_rc_confd}" > "${rootfs_path}/etc/conf.d/podman"
+		echo -n "${podman_init_rc}" >"${rootfs_path}/etc/init.d/podman"
+		echo -n "${podman_init_rc_confd}" >"${rootfs_path}/etc/conf.d/podman"
+
+		echo "($basename $0): write /etc/init.d/podman"
+
+		if [[ -f ./rc_services/kernelogger ]]; then
+			set -x
+			cp ./rc_services/kernelogger ${rootfs_path}/etc/init.d/kernelogger
+			set +x
+		fi
+
+		if [[ -f ./scripts/logger_wrapper.sh ]]; then
+			cp ./scripts/logger_wrapper.sh ${rootfs_path}/opt/logger_wrapper.sh
+			chmod +x ${rootfs_path}/opt/logger_wrapper.sh
+		fi
+
+		if [[ -f ./scripts/ovmd ]]; then
+			cp ./scripts/ovmd ${rootfs_path}/opt/ovmd
+			chmod +x  ${rootfs_path}/opt/ovmd
+		fi
 	fi
 	# Create stop_all runlevel
 	mkdir -p "${rootfs_path}/etc/runlevels/stop_all"

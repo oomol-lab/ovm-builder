@@ -1,0 +1,10 @@
+#! /sbin/openrc-run
+supervisor=supervise-daemon
+
+name="OVM kernel logger"
+description="OVM kernel logger wactcher"
+
+command="/bin/dmesg"
+command_args="-w"
+output_logger="/opt/logger_wrapper.sh stdout"
+error_logger="/opt/logger_wrapper.sh stdout"

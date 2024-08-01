@@ -1,7 +1,7 @@
 #!/usr/bin/bash
 parse_profile() {
 	export LC_ALL=en_US.UTF8
-	# Only support Linux 
+	# Only support Linux
 	HOST_MACHINE="$(uname -s)"
 	HOST_ARCH="$(uname -p)"
 	profile_dir="$_cwd_/target_builder/"
@@ -12,20 +12,20 @@ parse_profile() {
 }
 
 # Must called from func install_hosts_tools
-_build_proot(){
-	if [[ ! $callid = "T0Rrek1nbz0K" ]];then
+_build_proot() {
+	if [[ ! $callid = "T0Rrek1nbz0K" ]]; then
 		exit 100
 	fi
 	proot_src=$output/proot_src
 
-	if [[ -d $proot_src ]];then
-		set -xe 
+	if [[ -d $proot_src ]]; then
+		set -xe
 		cd $proot_src
 		make -C src loader.elf build.h
 		make -C src proot
 		set +xe
 	else
-		set -xe 
+		set -xe
 		git clone --depth 1 https://github.com/proot-me/proot $proot_src
 		cd $proot_src
 		make -C src loader.elf build.h
@@ -33,15 +33,15 @@ _build_proot(){
 		set +xe
 	fi
 	PATH="$proot_src/src:$PATH"
-	set -xe 
+	set -xe
 	proot --version
 	cd $_cwd_
 	set +xe
 }
 
-
-profile_funcs(){
-	if [[ ${is_profile_loaded} = true ]];then
+profile_funcs() {
+	if [[ ${is_profile_loaded} = true ]]; then
+		cd $_cwd_
 		intended_func
 	fi
 }
@@ -49,7 +49,7 @@ profile_funcs(){
 install_hosts_tools() {
 	set -x
 	sudo apt install libarchive-dev libtalloc-dev uthash-dev gcc make git wget tar xz-utils
-	set +x 
+	set +x
 	callid="T0Rrek1nbz0K" _build_proot
 }
 usage() {
@@ -64,7 +64,7 @@ usage() {
 }
 
 # export rootfs_path
-bootstrap_alpine(){
+bootstrap_alpine() {
 	set -xe
 	# Note the workdir changed to $output
 	cd $output
@@ -73,18 +73,18 @@ bootstrap_alpine(){
 	wget -c $rootfs_url --output-document=$rootfs_name
 	rm -rf rootfs_extracted
 	mkdir rootfs_extracted
-	tar -xvf $rootfs_name -C ./rootfs_extracted > /dev/null 2>&1
+	tar -xvf $rootfs_name -C ./rootfs_extracted >/dev/null 2>&1
 	cd rootfs_extracted
-	rootfs_path=$(pwd) 
+	rootfs_path=$(pwd)
 	export rootfs_path
 	# Note the workdir changed to $_cwd
 	cd $_cwd_
 	set +xe
 }
 
-install_package_into_rootfs(){
+install_package_into_rootfs() {
 	cd $_cwd_
-	pkgs=$(echo $preinstalled_packages |xargs )
+	pkgs=$(echo $preinstalled_packages | xargs)
 	set -xe
 	proot --rootfs=${rootfs_path} \
 		-b /dev:/dev \
@@ -101,16 +101,19 @@ install_package_into_rootfs(){
 	set -xe
 }
 
-pack_rootfs(){
+pack_rootfs() {
+	cd $_cwd_
+
+
 	# Note we changed work dir to $rootfs_path
 	cd $rootfs_path
 	file_list="$(ls . | xargs)"
 
 	set -xe
-	sudo tar --zstd -cvf "/tmp/rootfs_extracted.tar.zst" $file_list > /dev/null
-	sudo tar -Jcvf       "/tmp/rootfs_extracted.tar.xz" $file_list  > /dev/null
+	sudo tar --zstd -cvf "/tmp/rootfs_extracted.tar.zst" $file_list >/dev/null
+	sudo tar -Jcvf "/tmp/rootfs_extracted.tar.xz" $file_list >/dev/null
 	cp /tmp/rootfs_extracted.tar.zst $output
-	cp /tmp/rootfs_extracted.tar.xz  $output
+	cp /tmp/rootfs_extracted.tar.xz $output
 	set +xe
 
 	echo " --- $target_profile ---"
@@ -127,7 +130,7 @@ main() {
 	output=${_cwd_}/output
 	mkdir -p ${output}
 
-	if [[ $# -eq 1 ]];then
+	if [[ $# -eq 1 ]]; then
 		target_profile=$1
 	else
 		usage

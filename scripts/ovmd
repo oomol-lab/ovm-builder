@@ -205,10 +205,10 @@ copy_var_data() {
 
 	set -ex
 	cd ${s}/
-	tar -cvf /var.tar.xz $(/bin/ls .) > /dev/null
+	tar -cvf /var.tar.xz $(/bin/ls .) >/dev/null
 	sync
 	cd ${d}/
-	tar -xvf /var.tar.xz > /dev/null
+	tar -xvf /var.tar.xz >/dev/null
 	set +ex
 	echo "copy_var_data(): create a mark file .ovm_data_disk"
 	set -ex
@@ -244,7 +244,11 @@ main() {
 		mount_disk /var
 	}
 	write_podman_config
-	openrc default
+	{
+		openrc default
+		/sbin/rc-service kernelogger start
+		/sbin/rc-service podman start
+	}
 	echo "main(): wait....."
 	while true; do
 		sleep 1
