@@ -203,17 +203,17 @@ copy_var_data() {
 		return
 	fi
 
-	set -x
+	set -ex
 	cd ${s}/
-	tar -cvf /var.tar.xz $(/bin/ls .)
+	tar -cvf /var.tar.xz $(/bin/ls .) > /dev/null
 	sync
 	cd ${d}/
-	tar -xvf /var.tar.xz
-	set +x
+	tar -xvf /var.tar.xz > /dev/null
+	set +ex
 	echo "copy_var_data(): create a mark file .ovm_data_disk"
-	set -x
+	set -ex
 	touch .ovm_data_disk
-	set +x
+	set +ex
 }
 
 write_podman_config() {
