@@ -40,11 +40,10 @@ intended_func() {
 		echo -n "${podman_init_rc}" >"${rootfs_path}/etc/init.d/podman"
 		echo -n "${podman_init_rc_confd}" >"${rootfs_path}/etc/conf.d/podman"
 
-		echo "($basename $0): write /etc/init.d/podman"
-
 		if [[ -f ./rc_services/kernelogger ]]; then
 			set -x
 			cp ./rc_services/kernelogger ${rootfs_path}/etc/init.d/kernelogger
+			chmod +x ${rootfs_path}/etc/init.d/kernelogger
 			set +x
 		fi
 

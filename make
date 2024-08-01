@@ -90,12 +90,14 @@ install_package_into_rootfs() {
 		-b /dev:/dev \
 		-b /sys:/sys \
 		-b /proc:/proc \
+		-b /etc/resolv.conf:/etc/resolv.conf \
 		-w /root \
 		-0 /bin/su -c "sed -i 's/dl-cdn.alpinelinux.org/mirrors.tuna.tsinghua.edu.cn/g' /etc/apk/repositories"
 	proot --rootfs=${rootfs_path} \
 		-b /dev:/dev \
 		-b /sys:/sys \
 		-b /proc:/proc \
+		-b /etc/resolv.conf:/etc/resolv.conf \
 		-w /root \
 		-0 /bin/su -c "apk update ; apk add $pkgs"
 	set -xe

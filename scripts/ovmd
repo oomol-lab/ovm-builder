@@ -3,7 +3,6 @@ PS4='Line ${LINENO}: '
 set -o pipefail
 set -m
 
-trap cleanup SIGINT SIGTERM
 usage() {
 	echo "Usage: $0 -p <podman-http-port> -s <data-sector-counts> [--help]"
 	echo "  -p, --podman-http-port   <number>:    TCP port number of podman api service"
@@ -102,11 +101,6 @@ prerun() {
 	func_kill_service
 }
 
-cleanup() {
-	echo "Caught signal, cleaning up..."
-	func_kill_service
-	exit 0
-}
 
 # If find right disk, export BLKNAME
 # find_disk have no outcall
@@ -243,7 +237,9 @@ main() {
 	{
 		mount_disk /var
 	}
+
 	write_podman_config
+
 	{
 		openrc default
 		/sbin/rc-service kernelogger start
