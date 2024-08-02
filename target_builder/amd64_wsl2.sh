@@ -1,7 +1,10 @@
 # Profile of amd64_wsl
 
 # Do not change this plz
-rootfs_type=alpine_based
+rootfs_type="alpine_based"
+
+profile_name="amd64_wsl2"
+layer="layers/${profile_name}"
 
 # one package one line
 preinstalled_packages="
@@ -28,85 +31,31 @@ sha1sum="
 	alpine-minirootfs-3.20.2-x86_64.tar.gz:9bbb7008afafb1579ed8f10ee3bdbddccc4275e9
 "
 
-# this profile only !
+
+# intended_func will be called in make, do not change this function name.
 intended_func() {
-	if [[ -n ${rootfs_path} ]]; then
-		echo "($basename $0): write /etc/init.d/podman"
-
-		set -x
-		touch "${rootfs_path}/etc/init.d/podman"
-		touch "${rootfs_path}/etc/conf.d/podman"
-		set +x
-		echo -n "${podman_init_rc}" >"${rootfs_path}/etc/init.d/podman"
-		echo -n "${podman_init_rc_confd}" >"${rootfs_path}/etc/conf.d/podman"
-
-		if [[ -f ./rc_services/kernelogger ]]; then
-			set -x
-			cp ./rc_services/kernelogger ${rootfs_path}/etc/init.d/kernelogger
-			chmod +x ${rootfs_path}/etc/init.d/kernelogger
-			set +x
-		fi
-
-		if [[ -f ./scripts/logger_wrapper.sh ]]; then
-			cp ./scripts/logger_wrapper.sh ${rootfs_path}/opt/logger_wrapper.sh
-			chmod +x ${rootfs_path}/opt/logger_wrapper.sh
-		fi
-
-		if [[ -f ./scripts/ovmd ]]; then
-			cp ./scripts/ovmd ${rootfs_path}/opt/ovmd
-			chmod +x  ${rootfs_path}/opt/ovmd
-		fi
+	if [[ -n ${_cwd_} ]]; then
+		cd "${_cwd_}" || {
+			echo "Error: can not change workdir, stoped"
+			exit 100
+		}
+	else
+		echo "Error: can not change workdir, stoped"
+		exit 100
 	fi
-	# Create stop_all runlevel
-	mkdir -p "${rootfs_path}/etc/runlevels/stop_all"
+
+	if [[ ! -d "${layer}" ]]; then
+		echo "Error: ${layer} not exist, stoped"
+		exit 100
+	fi
+
+	if [[ -n ${rootfs_path} ]]; then
+		echo "($basename $0): Copy amd64_wsl2 layer"
+		set -xe
+		cp -rf ${layer}/*  ${rootfs_path}
+		set +xe
+	else
+		echo "Error: Env rootfs_path not defined by called script $0, stoped"
+		exit 100
+	fi
 }
-
-podman_init_rc='#!/sbin/openrc-run
-supervisor=supervise-daemon
-
-name="Podman API service"
-description="Listening service that answers API calls for Podman"
-
-command=/usr/bin/podman
-command_args="system service ${podman_opts:=--time 0} $podman_uri"
-command_user="${podman_user:=root}"
-
-extra_commands="start_containers"
-description_start_containers="Start containers with restart policy set to always"
-
-
-start_containers() {
-        ebegin "Starting containers with restart policy set to always"
-        su "$podman_user" -s /bin/sh -c "$command start --all --filter restart-policy=always"
-        eend $?
-}
-
-start_pre() {
-        if [ "$podman_user" = "root" ]; then
-                einfo "Configured as rootful service"
-                checkpath -d -m 0755 /run/podman
-        else
-                einfo "Configured as rootless service"
-                modprobe tun
-                modprobe fuse
-        fi
-}
-
-start_post() {
-        start_containers
-}
-'
-
-podman_init_rc_confd='# Configuration for /etc/init.d/podman
-
-# See podman-system-service(1) for service description
-# and available options.
-podman_opts="--time 0"
-
-# API endpoint in URI form. Leave empty to use defaults.
-podman_uri="tcp://127.0.0.1:8888"
-
-# Setting root user will start rootful service.
-# Use any other user for rootless mode.
-podman_user="root"
-'

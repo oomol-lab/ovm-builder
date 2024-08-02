@@ -192,20 +192,29 @@ copy_var_data() {
 	local s=$1
 	local d=$2
 
+	if [[ -z ${s} ]];then
+		echo "copy_var_data() : s is empty"
+		exit 100
+	fi
+	if [[ -z ${d} ]];then
+		echo "copy_var_data() : d is empty"
+		exit 100
+	fi
+
 	if [[ -f "${d}/.ovm_data_disk" ]]; then
 		echo "copy_var_data(): find .ovm_data_disk in ${s}, skip sync file"
 		return
 	fi
 
 	set -ex
-	cd ${s}/
+	cd "${s}/"
 	tar -cvf /var.tar.xz $(/bin/ls .) >/dev/null
 	sync
-	cd ${d}/
-	tar -xvf /var.tar.xz >/dev/null
-	set +ex
-	echo "copy_var_data(): create a mark file .ovm_data_disk"
-	set -ex
+	cd "${d}/"
+	# dangerious command begain
+	rm -rf ./*
+	# dangerious command end
+	tar -xvf /var.tar.xz 
 	touch .ovm_data_disk
 	set +ex
 }
