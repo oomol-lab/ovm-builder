@@ -59,7 +59,7 @@ usage() {
 # Args:
 #   arg[1] [amd64_wsl,arm64_macos]
 #
-# example: ./make amd64_wsl 
+# example: ./make amd64_wsl2
 '
 }
 
@@ -136,6 +136,7 @@ main() {
 		target_profile=$1
 	else
 		usage
+		exit 100
 	fi
 	parse_profile
 	install_hosts_tools
