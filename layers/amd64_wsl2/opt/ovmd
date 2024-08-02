@@ -101,7 +101,6 @@ prerun() {
 	func_kill_service
 }
 
-
 # If find right disk, export BLKNAME
 # find_disk have no outcall
 find_disk() {
@@ -192,11 +191,11 @@ copy_var_data() {
 	local s=$1
 	local d=$2
 
-	if [[ -z ${s} ]];then
+	if [[ -z ${s} ]]; then
 		echo "copy_var_data() : s is empty"
 		exit 100
 	fi
-	if [[ -z ${d} ]];then
+	if [[ -z ${d} ]]; then
 		echo "copy_var_data() : d is empty"
 		exit 100
 	fi
@@ -207,14 +206,20 @@ copy_var_data() {
 	fi
 
 	set -ex
-	cd "${s}/"
-	tar -cvf /var.tar.xz $(/bin/ls .) >/dev/null
+	cd "${s}/" || {
+		echo "copy_var_data(): change dir to ${s}/ failed, stop"
+		exit 100
+	}
+	tar -cvf /var.tar.xz $(/bin/ls .) > /dev/null
 	sync
-	cd "${d}/"
+	cd "${d}/" || {
+		echo "copy_var_data(): change dir to ${d}/ failed, stop"
+		exit 100
+	}
 	# dangerious command begain
 	rm -rf ./*
 	# dangerious command end
-	tar -xvf /var.tar.xz 
+	tar -xvf /var.tar.xz > /dev/null
 	touch .ovm_data_disk
 	set +ex
 }
