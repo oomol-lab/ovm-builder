@@ -106,7 +106,6 @@ install_package_into_rootfs() {
 pack_rootfs() {
 	cd $_cwd_
 
-
 	# Note we changed work dir to $rootfs_path
 	cd $rootfs_path
 	file_list="$(ls . | xargs)"
