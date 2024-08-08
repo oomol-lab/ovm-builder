@@ -5,6 +5,20 @@ parse_profile() {
 	HOST_MACHINE="$(uname -s)"
 	HOST_ARCH="$(uname -p)"
 	profile_dir="$_cwd_/target_builder/"
+
+	TARGET_ARCH=$(echo "${target_profile}" | cut -d '_' -f 2)
+
+	# aarch64 and arm64 are same cpu arch
+	if [[ "${HOST_ARCH}" = 'aarch64' ]];then
+		HOST_ARCH=arm64
+	fi
+
+	if [[ ! "${HOST_ARCH}" = "${TARGET_ARCH}" ]];then
+		echo "Error: HOST_ARCH must equal TARGET_ARCH"
+		echo "Your HOST_ARCH: ${HOST_ARCH}"
+		echo "Your TARGET_ARCH: ${TARGET_ARCH}"
+		exit 100
+	fi
 	set +x
 	source "$profile_dir/${target_profile}.sh"
 	is_profile_loaded=true
