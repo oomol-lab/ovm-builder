@@ -98,14 +98,14 @@ install_package_into_rootfs() {
 	cd $_cwd_
 	pkgs=$(echo $preinstalled_packages | xargs)
 	set -xe
-	proot --rootfs=${rootfs_path} \
+	sudo -E proot --rootfs=${rootfs_path} \
 		-b /dev:/dev \
 		-b /sys:/sys \
 		-b /proc:/proc \
 		-b /etc/resolv.conf:/etc/resolv.conf \
 		-w /root \
 		-0 /bin/su -c "sed -i 's/dl-cdn.alpinelinux.org/mirrors.tuna.tsinghua.edu.cn/g' /etc/apk/repositories"
-	proot --rootfs=${rootfs_path} \
+	sudo -E proot --rootfs=${rootfs_path} \
 		-b /dev:/dev \
 		-b /sys:/sys \
 		-b /proc:/proc \
@@ -123,10 +123,10 @@ pack_rootfs() {
 	file_list="$(ls . | xargs)"
 
 	set -xe
-	sudo tar --zstd -cvf "/tmp/rootfs_extracted.tar.zst" $file_list >/dev/null
-	sudo tar -Jcvf "/tmp/rootfs_extracted.tar.xz" $file_list >/dev/null
+	sudo -E tar --zstd -cvf "/tmp/rootfs_extracted.tar.zst" $file_list >/dev/null
+#	sudo -E tar -Jcvf "/tmp/rootfs_extracted.tar.xz" $file_list >/dev/null
 	cp /tmp/rootfs_extracted.tar.zst $output
-	cp /tmp/rootfs_extracted.tar.xz $output
+#	cp /tmp/rootfs_extracted.tar.xz $output
 	set +xe
 
 	echo " --- $target_profile ---"

@@ -35,9 +35,36 @@ sha1sum="
 	alpine-minirootfs-3.20.2-aarch64.tar.gz:62f6c6cdf6a5a1f1d45f4d4458c7e59839997f78
 "
 
-
 # intended_func will be called in make, do not change this function name.
 intended_func() {
 	# Nothing todo
-	echo -n ""
+	echo -n "intended_func in $profile_name"
+	if [[ -n ${rootfs_path} ]]; then
+		set -x
+		sudo -E proot --rootfs=${rootfs_path} \
+			-b /dev:/dev \
+			-b /sys:/sys \
+			-b /proc:/proc \
+			-b /etc/resolv.conf:/etc/resolv.conf \
+			-w /root \
+			-0 /bin/su -c "
+rc-update add acpid default
+rc-update add bootmisc boot
+rc-update add crond default
+rc-update add devfs sysinit
+rc-update add dmesg sysinit
+rc-update add hostname boot
+rc-update add hwclock boot
+rc-update add hwdrivers sysinit
+rc-update add killprocs shutdown
+rc-update add mdev sysinit
+rc-update add modules boot
+rc-update add mount-ro shutdown
+rc-update add networking boot
+rc-update add savecache shutdown
+rc-update add seedrng boot
+rc-update add swap boot
+			"
+		set +x
+	fi
 }
