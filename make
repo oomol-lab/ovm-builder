@@ -5,9 +5,7 @@ parse_profile() {
 	HOST_MACHINE="$(uname -s)"
 	HOST_ARCH="$(uname -p)"
 	profile_dir="$_cwd_/target_builder/"
-
 	TARGET_ARCH=$(echo "${target_profile}" | cut -d '_' -f 2)
-
 	# aarch64 and arm64 are same cpu arch
 	if [[ "${HOST_ARCH}" = 'aarch64' ]];then
 		HOST_ARCH=arm64
@@ -85,7 +83,7 @@ bootstrap_alpine() {
 	rootfs_name=$(echo ${rootfs_url} | cut -d ':' -f1)
 	rootfs_url=$(echo ${rootfs_url} | cut -d ':' -f2-)
 	wget -c $rootfs_url --output-document=$rootfs_name
-	rm -rf rootfs_extracted
+	sudo rm -rf rootfs_extracted
 	mkdir rootfs_extracted
 	tar -xvf $rootfs_name -C ./rootfs_extracted >/dev/null 2>&1
 	cd rootfs_extracted
