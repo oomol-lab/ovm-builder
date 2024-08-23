@@ -39,6 +39,7 @@ sha1sum="
 intended_func() {
 	# Nothing todo
 	echo -n "intended_func in $profile_name"
+	# Enable necessary rc-services
 	if [[ -n ${rootfs_path} ]]; then
 		set -x
 		sudo -E proot --rootfs=${rootfs_path} \
@@ -66,5 +67,12 @@ rc-update add seedrng boot
 rc-update add swap boot
 			"
 		set +x
+	fi
+
+
+	# Copy interfaces configure into rootfs, the lo should be autoconfig
+	if [[ -n ${rootfs_path} ]]; then
+		cd $_cwd_
+		cp layers/macos_arm64/etc/network/interfaces ${rootfs_path}/etc/network/interfaces
 	fi
 }
