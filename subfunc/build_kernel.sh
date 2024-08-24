@@ -59,7 +59,7 @@ pull_ksrc() {
 	fi
 
 	set -ex
-	dts_picked="${kernel_src}/arch/${arch_machine}/boot/dts/$board_picked.dts"
+	dts_picked="${kernel_src}/arch/${arch_machine}/boot/dts/${vendor}/${hardware}.dts"
 	set +ex
 	if [[ ! -f "${dts_picked}" ]]; then
 		echo "Error: Board not find"
@@ -87,6 +87,7 @@ make_config() {
 	make LLVM=1 O="${compiled_output_dir}" defconfig -j "$n_proc"
 	set +ex
 
+	# make menuconfig
 	if [[ "${MENU_CONFIG}" = true ]]; then
 		set -ex
 		make LLVM=1 O="${compiled_output_dir}" menuconfig
@@ -107,7 +108,7 @@ make_build() {
 	}
 	bear -- make LLVM=1 O="${compiled_output_dir}" -j "$n_proc"
 	make LLVM=1 O="${compiled_output_dir}" -j "$n_proc" Image.gz
-	install_dest="${compiled_output_dir}/kernel_package_$board_picked"
+	install_dest="${compiled_output_dir}/kernel_package/${vendor}/${hardware}"
 	INSTALL_MOD_PATH="${install_dest}" \
 		INSTALL_HDR_PATH="${install_dest}" \
 		make LLVM=1 \
@@ -122,7 +123,7 @@ make_build() {
 pack_kernel() {
 	set -ex
 	cd "${compiled_output_dir}"
-	dtb_picked="arch/${arch_machine}/boot/dts/$board_picked.dtb"
+	dtb_picked="${compiled_output_dir}/arch/${arch_machine}/boot/dts/${vendor}/${hardware}.dtb"
 	cp System.map .config "$dtb_picked" "arch/$arch_machine/boot/Image.gz" "${install_dest}"
 	cp -rf usr/include 		   	 "${install_dest}/include"
 	cp "${_cwd}/install_kernel.sh" 		 "${install_dest}"
@@ -134,8 +135,14 @@ pack_kernel() {
 	done
 
 	set -ex
-	tar -Jcvf "${vendor}_${hardware}_${kernel_version}.tar.xz" "kernel_package_${vendor}/${hardware}" >/dev/null
-	cp "${vendor}_${hardware}_${kernel_version}.tar.xz" "${HOME}/"
+	cd "${install_dest}/../../"
+	tar -Jcvf "${vendor}_${hardware}_${kernel_version}.tar.xz" "${vendor}" >/dev/null
+	# Main make script always have env ${_cwd_}, notice the current workdir in ${compiled_output_dir}
+	if [[ -n ${_cwd_} ]]; then
+		set -x
+		cp "${vendor}_${hardware}_${kernel_version}.tar.xz" "${_cwd_}/output/"
+		set +x
+	fi
 	set +ex
 }
 
@@ -179,9 +186,11 @@ main() {
 	set -x
 	script_name=$(basename $0)
 	kernel_version=$1
-	board_picked=$2
+	board_picked=$2 		     # rockchip/rk3399-evb
+	vendor=$(dirname "$board_picked")    # rockchip
+	hardware=$(basename "$board_picked") # rk3399-evb
 	kernel_config=$3
-	out_dir=${4}/${script_name}
+	out_dir=${4}/${script_name}          
 	set +ex
 
 	if [[ ! -f ${kernel_config} ]]; then
@@ -198,8 +207,6 @@ main() {
 		}
 	fi
 
-	export vendor=$(dirname "$board_picked")    # rockchip
-	export hardware=$(basename "$board_picked") # rk3399-evb
 
 	set -ex
 	mkdir -p "${out_dir}"
@@ -211,6 +218,7 @@ main() {
 		arch_machine=arm64
 	fi
 
+	# make O=$compiled_output_dir
 	compiled_output_dir="${out_dir}/compiled_output_dir_${arch_machine}"
 
 	# get cpu core for make -j $n_proc

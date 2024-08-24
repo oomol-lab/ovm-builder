@@ -34,6 +34,20 @@ other_url=""
 sha1sum="
 	alpine-minirootfs-3.20.2-aarch64.tar.gz:62f6c6cdf6a5a1f1d45f4d4458c7e59839997f78
 "
+# Build kernel for macos_arm64 using custom kernel config
+kernel_builder() {
+	echo "Build kernel for $profile_name"
+	cd $_cwd_
+	kernel_config="layers/macos_arm64/etc/buildinfo/kernel_config"
+	if [[ -f ${kernel_config} ]]; then
+		CLEAN_BUILD=true \
+			PULL_SOURCE_BUILD=true \
+			N_PROC=16 \
+			bash +x ./subfunc/build_kernel.sh \
+			next \
+			rockchip/rk3399-eaidk-610 ${kernel_config} ./output/
+	fi
+}
 
 # intended_func will be called in make, do not change this function name.
 intended_func() {
@@ -68,7 +82,6 @@ rc-update add swap boot
 			"
 		set +x
 	fi
-
 
 	# Copy interfaces configure into rootfs, the lo should be autoconfig
 	if [[ -n ${rootfs_path} ]]; then
