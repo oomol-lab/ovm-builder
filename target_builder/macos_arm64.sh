@@ -37,15 +37,33 @@ sha1sum="
 # Build kernel for macos_arm64 using custom kernel config
 kernel_builder() {
 	echo "Build kernel for $profile_name"
-	cd $_cwd_
-	kernel_config="layers/macos_arm64/etc/buildinfo/kernel_config"
+	if [[ ! -n ${workspace} ]]; then
+		echo 'Error: env ${workspace} empty'
+		exit 100
+	else
+		cd $workspace
+	fi
+	if [[ ! -n ${output} ]]; then
+		echo 'Error: env ${output} empty'
+		exit 100
+	fi
+
+	set -x
+	kernel_config="${workspace}/layers/macos_arm64/etc/buildinfo/kernel_config"
+	set +x
 	if [[ -f ${kernel_config} ]]; then
-		CLEAN_BUILD=true \
+		set -x
+		CLEAN_BUILD=false \
 			PULL_SOURCE_BUILD=true \
 			N_PROC=16 \
-			bash +x ./subfunc/build_kernel.sh \
+			WORKSPACE=${workspace} \
+			./subfunc/build_kernel.sh \
 			next \
-			rockchip/rk3399-eaidk-610 ${kernel_config} ./output/
+			rockchip/rk3399-eaidk-610 ${kernel_config} ${output}
+			set +x
+	else
+		echo 'Error: env ${kernel_config}'
+		exit 100
 	fi
 }
 
@@ -53,10 +71,16 @@ kernel_builder() {
 intended_func() {
 	# Nothing todo
 	echo -n "intended_func in $profile_name"
+	if [[ -f ${proot_src}/src/proot ]];then
+		echo -n ""
+	else
+		echo 'Error: ${proot_src}/src/proot not exist'
+		exit 100
+	fi
 	# Enable necessary rc-services
 	if [[ -n ${rootfs_path} ]]; then
 		set -x
-		sudo -E proot --rootfs=${rootfs_path} \
+		sudo -E ${proot_src}/src/proot --rootfs=${rootfs_path} \
 			-b /dev:/dev \
 			-b /sys:/sys \
 			-b /proc:/proc \
@@ -81,6 +105,9 @@ rc-update add seedrng boot
 rc-update add swap boot
 			"
 		set +x
+	else
+		echo 'env ${rootfs_path} empty'
+		exit 100
 	fi
 
 	# Copy interfaces configure into rootfs, the lo should be autoconfig

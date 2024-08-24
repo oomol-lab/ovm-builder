@@ -125,8 +125,8 @@ pack_kernel() {
 	cd "${compiled_output_dir}"
 	dtb_picked="${compiled_output_dir}/arch/${arch_machine}/boot/dts/${vendor}/${hardware}.dtb"
 	cp System.map .config "$dtb_picked" "arch/$arch_machine/boot/Image.gz" "${install_dest}"
-	cp -rf usr/include 		   	 "${install_dest}/include"
-	cp "${_cwd}/install_kernel.sh" 		 "${install_dest}"
+	cp -rf usr/include "${install_dest}/include"
+	cp "${_workdir}/subfunc/install_kernel.sh" "${install_dest}"
 	cp "${kernel_src}/compile_commands.json" "${install_dest}"
 	set +ex
 
@@ -137,10 +137,10 @@ pack_kernel() {
 	set -ex
 	cd "${install_dest}/../../"
 	tar -Jcvf "${vendor}_${hardware}_${kernel_version}.tar.xz" "${vendor}" >/dev/null
-	# Main make script always have env ${_cwd_}, notice the current workdir in ${compiled_output_dir}
-	if [[ -n ${_cwd_} ]]; then
+	# Main make script always have env ${_workdir_}, notice the current workdir in ${compiled_output_dir}
+	if [[ -n ${_workdir_} ]]; then
 		set -x
-		cp "${vendor}_${hardware}_${kernel_version}.tar.xz" "${_cwd_}/output/"
+		cp "${vendor}_${hardware}_${kernel_version}.tar.xz" "${_workdir_}/output/"
 		set +x
 	fi
 	set +ex
@@ -182,15 +182,15 @@ main() {
 		exit
 	fi
 
-	_cwd=$(pwd)
+	_workdir=$(pwd)
 	set -x
 	script_name=$(basename $0)
 	kernel_version=$1
-	board_picked=$2 		     # rockchip/rk3399-evb
+	board_picked=$2                      # rockchip/rk3399-evb
 	vendor=$(dirname "$board_picked")    # rockchip
 	hardware=$(basename "$board_picked") # rk3399-evb
 	kernel_config=$3
-	out_dir=${4}/${script_name}          
+	out_dir=${4}/${script_name}
 	set +ex
 
 	if [[ ! -f ${kernel_config} ]]; then
@@ -206,7 +206,6 @@ main() {
 			exit 100
 		}
 	fi
-
 
 	set -ex
 	mkdir -p "${out_dir}"

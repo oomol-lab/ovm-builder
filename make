@@ -46,7 +46,7 @@ _build_proot() {
 	fi
 	PATH="$proot_src/src:$PATH"
 	set -xe
-	proot --version
+	sudo -E ${proot_src}/src/proot --version
 	cd $_cwd_
 	set +xe
 }
@@ -54,6 +54,7 @@ _build_proot() {
 profile_funcs() {
 	if [[ ${is_profile_loaded} = true ]]; then
 		cd $_cwd_
+		kernel_builder
 		intended_func
 	fi
 }
@@ -98,14 +99,14 @@ install_package_into_rootfs() {
 	cd $_cwd_
 	pkgs=$(echo $preinstalled_packages | xargs)
 	set -xe
-	sudo -E proot --rootfs=${rootfs_path} \
+	sudo -E ${proot_src}/src/proot --rootfs=${rootfs_path} \
 		-b /dev:/dev \
 		-b /sys:/sys \
 		-b /proc:/proc \
 		-b /etc/resolv.conf:/etc/resolv.conf \
 		-w /root \
 		-0 /bin/su -c "sed -i 's/dl-cdn.alpinelinux.org/mirrors.tuna.tsinghua.edu.cn/g' /etc/apk/repositories"
-	sudo -E proot --rootfs=${rootfs_path} \
+	sudo -E ${proot_src}/src/proot --rootfs=${rootfs_path} \
 		-b /dev:/dev \
 		-b /sys:/sys \
 		-b /proc:/proc \
@@ -140,6 +141,9 @@ main() {
 	_cwd_=$(dirname $0)
 	cd $_cwd_
 	_cwd_=$(pwd)
+	# export $workspace to all functions
+	# TODO: replace _cwd_ to workspace
+	export workspace=${_cwd_}
 	output=${_cwd_}/output
 	mkdir -p ${output}
 
