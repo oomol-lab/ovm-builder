@@ -148,11 +148,11 @@ kill_all(){
 }
 
 main() {
-	kill_all
 	parse_args "$@"
 	get_blk_sector_count
 	make_fs
 	mount_disk
+	kill_all
 	write_podman_config
 	# create dirs which openrc needed
 	mkdir -p /var/run
