@@ -95,12 +95,6 @@ func_kill_service() {
 	}
 }
 
-# kill old ovmd and stop all openrc services
-prerun() {
-	func_kill_ovmd
-	func_kill_service
-}
-
 # If find right disk, export BLKNAME
 # find_disk have no outcall
 find_disk() {
@@ -237,7 +231,7 @@ write_podman_config() {
 
 main() {
 	parse_args "$@"
-	prerun
+	func_kill_ovmd
 	find_disk ${data_sector_counts}
 	disk_format ${UUID}
 
@@ -252,7 +246,13 @@ main() {
 		mount_disk /var
 	}
 
-	write_podman_config
+	{
+		func_kill_service
+	}
+
+	{
+		write_podman_config
+	}
 
 	{
 		openrc default
