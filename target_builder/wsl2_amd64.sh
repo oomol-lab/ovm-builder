@@ -31,6 +31,11 @@ sha1sum="
 	alpine-minirootfs-3.20.2-x86_64.tar.gz:9bbb7008afafb1579ed8f10ee3bdbddccc4275e9
 "
 
+# WSL2 no need to make rootfs disk
+make_rootfs_disk(){
+	echo -n ""
+}
+
 # WSL2 no need build kernel
 kernel_builder(){
 	echo "Skip build kernel in ${profile_name}"

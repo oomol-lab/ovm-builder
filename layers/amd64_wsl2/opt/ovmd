@@ -210,7 +210,7 @@ copy_var_data() {
 		echo "copy_var_data(): change dir to ${s}/ failed, stop"
 		exit 100
 	}
-	tar -cvf /var.tar.xz $(/bin/ls .) > /dev/null
+	tar -cvf /var.tar.xz $(/bin/ls .) >/dev/null
 	sync
 	cd "${d}/" || {
 		echo "copy_var_data(): change dir to ${d}/ failed, stop"
@@ -219,7 +219,7 @@ copy_var_data() {
 	# dangerious command begain
 	rm -rf ./*
 	# dangerious command end
-	tar -xvf /var.tar.xz > /dev/null
+	tar -xvf /var.tar.xz >/dev/null
 	touch .ovm_data_disk
 	set +ex
 }

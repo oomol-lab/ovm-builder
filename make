@@ -5,6 +5,11 @@ parse_profile() {
 	HOST_MACHINE="$(uname -s)"
 	HOST_ARCH="$(uname -p)"
 	profile_dir="$_cwd_/target_builder/"
+	if [[ ! -f ${profile_dir}/${target_profile}.sh ]];then
+		echo "Error: $target_profile not support! "
+		echo "${profile_dir}/${target_profile}.sh not exist or wrong !"
+		exit 100
+	fi
 	TARGET_ARCH=$(echo "${target_profile}" | cut -d '_' -f 2)
 	# aarch64 and arm64 are same cpu arch
 	if [[ "${HOST_ARCH}" = 'aarch64' ]];then
@@ -56,6 +61,7 @@ profile_funcs() {
 		cd $_cwd_
 		kernel_builder
 		intended_func
+		make_rootfs_disk
 	fi
 }
 

@@ -41,6 +41,7 @@ copy_rootfs_into_disk(){
 	sudo -E mount $output/$disk_name $ovm_disk_mount_point
 	sudo -E tar -xvf $rootfs_archive -C $ovm_disk_mount_point
 	sync
+	umount $ovm_disk_mount_point
 	set +x
 }
 

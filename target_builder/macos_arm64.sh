@@ -34,6 +34,8 @@ other_url=""
 sha1sum="
 	alpine-minirootfs-3.20.2-aarch64.tar.gz:62f6c6cdf6a5a1f1d45f4d4458c7e59839997f78
 "
+
+
 # Build kernel for macos_arm64 using custom kernel config
 kernel_builder() {
 	echo "Build kernel for $profile_name"
@@ -53,6 +55,7 @@ kernel_builder() {
 	set +x
 	if [[ -f ${kernel_config} ]]; then
 		set -x
+		# CLEAN_BUILD false to cache build result
 		CLEAN_BUILD=false \
 			PULL_SOURCE_BUILD=true \
 			N_PROC=16 \
@@ -65,6 +68,7 @@ kernel_builder() {
 		echo 'Error: env ${kernel_config}'
 		exit 100
 	fi
+	export KERNEL_BUILDED=true
 }
 
 # intended_func will be called in make, do not change this function name.
@@ -115,4 +119,17 @@ rc-update add swap boot
 		cd $_cwd_
 		cp layers/macos_arm64/etc/network/interfaces ${rootfs_path}/etc/network/interfaces
 	fi
+	export ROOTFS_BUILDED=true
+}
+
+make_rootfs_disk(){
+	if [[  $KERNEL_BUILDED != true ]];then
+		echo "Error: Kernel not build..."
+		echo "not make rootfs disk"
+	fi
+	if [[  $ROOTFS_BUILDED != true ]];then
+		echo "Error: rootfs not build..."
+		echo "not make rootfs disk"
+	fi
+	SIZE=4G  ./subfunc/mkext4disk.sh 
 }

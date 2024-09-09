@@ -137,10 +137,10 @@ pack_kernel() {
 	set -ex
 	cd "${install_dest}/../../"
 	tar -Jcvf "${vendor}_${hardware}_${kernel_version}.tar.xz" "${vendor}" >/dev/null
-	# Main make script always have env ${_workdir_}, notice the current workdir in ${compiled_output_dir}
-	if [[ -n ${_workdir_} ]]; then
+	# Main make script always have env ${_workdir}, notice the current workdir in ${compiled_output_dir}
+	if [[ -n ${_workdir} ]]; then
 		set -x
-		cp "${vendor}_${hardware}_${kernel_version}.tar.xz" "${_workdir_}/output/"
+		cp "${vendor}_${hardware}_${kernel_version}.tar.xz" "${_workdir}/output/"
 		set +x
 	fi
 	set +ex
