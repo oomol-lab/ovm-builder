@@ -7,6 +7,8 @@ description="Listening service that answers API calls for Podman"
 command=/usr/bin/podman
 command_args="--log-level=trace system service ${podman_opts:=--time 0} $podman_uri"
 command_user="${podman_user:=root}"
+output_logger="/opt/logger_wrapper.sh stdout"
+error_logger="/opt/logger_wrapper.sh stdout"
 
 extra_commands="start_containers"
 description_start_containers="Start containers with restart policy set to always"
