@@ -80,17 +80,20 @@ func_kill_ovmd() {
 }
 
 func_kill_service() {
+	openrc stop_all
+	while true; do
+		ps aux | grep -v grep | grep 'podman --log-level=' > /dev/null 
+		ret=$?
+		test $ret -eq 0 && echo "Killing podman api..." || {
+			echo "Podman api stoped"
+			break
+		}
+	done
+
 	PODMAN_IGNORE_CGROUPSV1_WARNING=1 podman stop -a
 	ret=$?
 	test $ret -eq 0 && echo "All containers stoped" || {
 		echo "Containers stop failed"
-		exit 100
-	}
-
-	openrc stop_all
-	ret=$?
-	test $ret -eq 0 && echo "All openrc services stoped" || {
-		echo "Some openrc service stop failed"
 		exit 100
 	}
 }
