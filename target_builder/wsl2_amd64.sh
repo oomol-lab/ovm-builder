@@ -39,9 +39,7 @@ make_rootfs_disk(){
 # WSL2 no need build kernel
 kernel_builder(){
 	echo "Skip build kernel in ${profile_name}"
-	exit 0
 }
-
 
 # intended_func will be called in make, do not change this function name.
 intended_func() {
@@ -63,7 +61,7 @@ intended_func() {
 	if [[ -n ${rootfs_path} ]]; then
 		echo "($basename $0): Copy amd64_wsl2 layer"
 		set -xe
-		cp -rf ${layer}/*  ${rootfs_path}
+		sudo -E cp -rf ${layer}/*  ${rootfs_path}
 		set +xe
 	else
 		echo "Error: Env rootfs_path not defined by called script $0, stoped"

@@ -15,6 +15,9 @@ parse_profile() {
 	if [[ "${HOST_ARCH}" = 'aarch64' ]];then
 		HOST_ARCH=arm64
 	fi
+	if [[ "${HOST_ARCH}" = 'x86_64' ]];then
+		HOST_ARCH=amd64
+	fi
 
 	if [[ ! "${HOST_ARCH}" = "${TARGET_ARCH}" ]];then
 		echo "Error: HOST_ARCH must equal TARGET_ARCH"
