@@ -19,6 +19,7 @@ preinstalled_packages="
 	blkid
 	mount
  	zstd
+  	tar
 	"
 # rootfs_name:download_url
 rootfs_url="
