@@ -18,6 +18,7 @@ preinstalled_packages="
 	findmnt
 	blkid
 	mount
+ 	zstd
 	"
 # rootfs_name:download_url
 rootfs_url="
