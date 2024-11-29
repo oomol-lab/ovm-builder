@@ -20,8 +20,8 @@ parse_profile() {
 	if [[ "${HOST_ARCH}" == 'aarch64' ]]; then
 		HOST_ARCH=arm64
 	fi
-	if [[ "${HOST_ARCH}" == 'amd64' ]]; then
-		HOST_ARCH=x86_64
+	if [[ "${HOST_ARCH}" == 'x86_64' ]]; then
+		HOST_ARCH=amd64
 	fi
 
 	echo "HOST_ARCH: $HOST_ARCH"
