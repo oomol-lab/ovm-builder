@@ -1,0 +1,68 @@
+#! /usr/bin/env bash
+# FOR DEV
+if [[ $SKIP_APT_GET_INSTALL == "true" ]]; then
+	echo '$SKIP_APT_GET_INSTALL == true, skip install required package'
+else
+	sudo -E apt update
+	sudo -E apt install wget
+
+fi
+preinstalled_packages="
+	bash
+	openrc
+	podman
+	e2fsprogs
+	busybox-mdev-openrc
+	dmesg
+	procps
+	findmnt
+	blkid
+	mount
+ 	zstd
+  	tar
+	"
+rootfs_url="https://dl-cdn.alpinelinux.org/alpine/v3.20/releases/x86_64/alpine-minirootfs-3.20.2-x86_64.tar.gz"
+checksum="9bbb7008afafb1579ed8f10ee3bdbddccc4275e9  alpine_rootfs.tar.gz"
+
+bootstrap_alpine() {
+	wget "$rootfs_url" --output-document="$output/alpine_rootfs.tar.gz"
+	echo "$checksum" >$output/alpine_rootfs.tar.gz.sha1sum
+
+	# ==== CURRENT DIR in $workspace/output ====
+	cd $output && sha1sum -c alpine_rootfs.tar.gz.sha1sum || {
+		echo "Error: checksha1sum failed"
+		exit 100
+	}
+	sudo rm -rf  ./target_rootfs
+	mkdir -p ./target_rootfs && sudo -E tar -xvf alpine_rootfs.tar.gz -C ./target_rootfs || {
+		echo "Error: extract alpine_rootfs.tar.gz failed"
+		exit 100
+	}
+
+	pkgs=$(echo $preinstalled_packages | xargs)
+	if [[ $NATIVE_BUILD == true ]]; then
+		sudo -E proot --rootfs=./target_rootfs \
+			-b /dev:/dev \
+			-b /sys:/sys \
+			-b /proc:/proc \
+			-b /etc/resolv.conf:/etc/resolv.conf \
+			-w /root \
+			-0 /bin/su -c "apk update;apk add $pkgs"
+	else
+		sudo -E proot --qemu=qemu-x86_64-static --rootfs=./target_rootfs \
+			-b /dev:/dev \
+			-b /sys:/sys \
+			-b /proc:/proc \
+			-b /etc/resolv.conf:/etc/resolv.conf \
+			-w /root \
+			-0 /bin/su -c "apk update;apk add $pkgs"
+	fi
+
+	cd $workspace
+}
+
+echo "=== Bootstrap Alpine ==="
+echo workspace: $workspace
+echo output: $output
+
+bootstrap_alpine

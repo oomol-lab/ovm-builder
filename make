@@ -1,173 +1,90 @@
 #!/usr/bin/bash
+check_distro() {
+	echo "== /etc/lsb-release =="
+	grep DISTRIB_ID=Ubuntu /etc/lsb-release && grep DISTRIB_RELEASE=24.04 /etc/lsb-release || {
+		echo "Only support build on ubuntu 24.04"
+		exit 100
+	}
+	echo "======================"
+}
+
 parse_profile() {
-	export LC_ALL=en_US.UTF8
-	# Only support Linux
-	HOST_MACHINE="$(uname -s)"
-	HOST_ARCH="$(uname -p)"
-	profile_dir="$_cwd_/target_builder/"
-	if [[ ! -f ${profile_dir}/${target_profile}.sh ]];then
-		echo "Error: $target_profile not support! "
-		echo "${profile_dir}/${target_profile}.sh not exist or wrong !"
+	echo "=== Parse $target_profile ==="
+
+	if [[ ! -f ./target_builder/$target_profile ]]; then
+		echo "Error: profile $target_profile not support! "
 		exit 100
 	fi
-	TARGET_ARCH=$(echo "${target_profile}" | cut -d '_' -f 2)
-	# aarch64 and arm64 are same cpu arch
-	if [[ "${HOST_ARCH}" = 'aarch64' ]];then
+
+	HOST_ARCH=$(uname -p)
+	if [[ "${HOST_ARCH}" == 'aarch64' ]]; then
 		HOST_ARCH=arm64
 	fi
-	if [[ "${HOST_ARCH}" = 'x86_64' ]];then
-		HOST_ARCH=amd64
+	if [[ "${HOST_ARCH}" == 'amd64' ]]; then
+		HOST_ARCH=x86_64
 	fi
 
-	if [[ ! "${HOST_ARCH}" = "${TARGET_ARCH}" ]];then
-		echo "Error: HOST_ARCH must equal TARGET_ARCH"
-		echo "Your HOST_ARCH: ${HOST_ARCH}"
-		echo "Your TARGET_ARCH: ${TARGET_ARCH}"
-		exit 100
-	fi
-	set +x
-	source "$profile_dir/${target_profile}.sh"
-	is_profile_loaded=true
-	set -x
-}
+	echo "HOST_ARCH: $HOST_ARCH"
 
-# Must called from func install_hosts_tools
-_build_proot() {
-	if [[ ! $callid = "T0Rrek1nbz0K" ]]; then
-		exit 100
-	fi
-	proot_src=$output/proot_src
+	TARGET_ARCH=$(echo "${target_profile}" | cut -d '_' -f 2)
 
-	if [[ -d $proot_src ]]; then
-		set -xe
-		cd $proot_src
-		make -C src loader.elf build.h
-		make -C src proot
-		set +xe
+	echo TARGET_ARCH: $TARGET_ARCH # only support arm64
+
+	echo "Build ${TARGET_ARCH} on ${HOST_ARCH}"
+	if [[ "${HOST_ARCH}" == "${TARGET_ARCH}" ]]; then
+		export NATIVE_BUILD=true
+		echo "current we do native build..."
 	else
-		set -xe
-		git clone --depth 1 https://github.com/proot-me/proot $proot_src
-		cd $proot_src
-		make -C src loader.elf build.h
-		make -C src proot
-		set +xe
+		export CROSS_BUILD=true
+		echo "current we do cross build, building proot...."
+
+		# FOR DEV
+		if [[ $SKIP_BUILD_PROOT == "true" ]]; then
+			echo '$SKIP_BUILD_PROOT == true, skip build proot'
+		else
+			bash +x ${workspace}/subfunc/build_proot.sh || {
+				echo "Error: Build proot failed"
+				exit 100
+			}
+		fi
 	fi
-	PATH="$proot_src/src:$PATH"
-	set -xe
-	sudo -E ${proot_src}/src/proot --version
-	cd $_cwd_
-	set +xe
+
+	bash +x $workspace/target_builder/$target_profile || {
+		echo "Error: run $workspace/target_builder/$target_profile failed"
+		exit 100
+	}
 }
 
-profile_funcs() {
-	if [[ ${is_profile_loaded} = true ]]; then
-		cd $_cwd_
-		kernel_builder
-		intended_func
-		make_rootfs_disk
-	fi
-}
-
-install_hosts_tools() {
-	set -x
-	sudo apt install libarchive-dev libtalloc-dev uthash-dev gcc make git wget tar xz-utils
-	set +x
-	callid="T0Rrek1nbz0K" _build_proot
-}
 usage() {
-	echo '
-# Envs:
-#   NULL
-# Args:
-#   arg[1] [amd64_wsl,arm64_macos]
-#
-# example: ./make amd64_wsl2
-'
+	cat ./docs/help
 }
 
-# export rootfs_path
-bootstrap_alpine() {
-	set -xe
-	# Note the workdir changed to $output
-	cd $output
-	rootfs_name=$(echo ${rootfs_url} | cut -d ':' -f1)
-	rootfs_url=$(echo ${rootfs_url} | cut -d ':' -f2-)
-	wget -c $rootfs_url --output-document=$rootfs_name
-	sudo rm -rf rootfs_extracted
-	mkdir rootfs_extracted
-	tar -xvf $rootfs_name -C ./rootfs_extracted >/dev/null 2>&1
-	cd rootfs_extracted
-	rootfs_path=$(pwd)
-	export rootfs_path
-	# Note the workdir changed to $_cwd
-	cd $_cwd_
-	set +xe
-}
-
-install_package_into_rootfs() {
-	cd $_cwd_
-	pkgs=$(echo $preinstalled_packages | xargs)
-	set -xe
-	sudo -E ${proot_src}/src/proot --rootfs=${rootfs_path} \
-		-b /dev:/dev \
-		-b /sys:/sys \
-		-b /proc:/proc \
-		-b /etc/resolv.conf:/etc/resolv.conf \
-		-w /root \
-		-0 /bin/su -c "sed -i 's/dl-cdn.alpinelinux.org/mirrors.tuna.tsinghua.edu.cn/g' /etc/apk/repositories"
-	sudo -E ${proot_src}/src/proot --rootfs=${rootfs_path} \
-		-b /dev:/dev \
-		-b /sys:/sys \
-		-b /proc:/proc \
-		-b /etc/resolv.conf:/etc/resolv.conf \
-		-w /root \
-		-0 /bin/su -c "apk update ; apk add $pkgs"
-	set -xe
-}
-
-pack_rootfs() {
-	cd $_cwd_
-
-	# Note we changed work dir to $rootfs_path
-	cd $rootfs_path
-	file_list="$(ls . | xargs)"
-
-	set -xe
-	sudo -E tar --zstd -cvf "/tmp/rootfs_extracted.tar.zst" $file_list >/dev/null
-#	sudo -E tar -Jcvf "/tmp/rootfs_extracted.tar.xz" $file_list >/dev/null
-	cp /tmp/rootfs_extracted.tar.zst $output
-#	cp /tmp/rootfs_extracted.tar.xz $output
-	set +xe
-
-	echo " --- $target_profile ---"
-	echo "rootfs: $output/rootfs_extracted.tar.zst"
-	echo "rootfs: $output/rootfs_extracted.tar.xz"
-	echo ""
+copy_layer(){
+	cd $workspace/layers/$target_profile
+	ls ./
 }
 
 main() {
-	# Work dir
-	_cwd_=$(dirname $0)
-	cd $_cwd_
-	_cwd_=$(pwd)
-	# export $workspace to all functions
-	# TODO: replace _cwd_ to workspace
-	export workspace=${_cwd_}
-	output=${_cwd_}/output
+	cd "$(dirname $0)"
+	if [[ $1 == help ]] || [[ $# -ne 1 ]]; then
+		usage
+		exit 100
+	fi
+
+	export workspace="$(pwd)"
+	export output=${workspace}/output
+
+	echo "- workspace: $workspace"
+	echo "- output   : ${output}"
 	mkdir -p ${output}
 
 	if [[ $# -eq 1 ]]; then
 		target_profile=$1
-	else
-		usage
-		exit 100
 	fi
+
+	check_distro
 	parse_profile
-	install_hosts_tools
-	bootstrap_alpine
-	install_package_into_rootfs
-	profile_funcs
-	pack_rootfs
+	#copy_layer
 }
 
 main "$@"
