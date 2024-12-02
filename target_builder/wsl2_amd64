@@ -47,7 +47,7 @@ bootstrap_alpine() {
 			-b /proc:/proc \
 			-b /etc/resolv.conf:/etc/resolv.conf \
 			-w /root \
-			-0 /bin/su -c "apk update;apk add $pkgs"
+			-0 /bin/su -c "apk update;apk add $pkgs;mkdir -p /etc/runlevels/stop_all"
 	else
 		sudo -E proot --qemu=qemu-x86_64-static --rootfs=./target_rootfs \
 			-b /dev:/dev \
@@ -55,7 +55,7 @@ bootstrap_alpine() {
 			-b /proc:/proc \
 			-b /etc/resolv.conf:/etc/resolv.conf \
 			-w /root \
-			-0 /bin/su -c "apk update;apk add $pkgs"
+			-0 /bin/su -c "apk update;apk add $pkgs;mkdir -p /etc/runlevels/stop_all"
 	fi
 
 	cd $workspace
