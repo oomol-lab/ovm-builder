@@ -1,5 +1,5 @@
 # `make` commands
-  - `make macos_arm64` : make ovm bootable image for macos arm64
+  - `macos_arm64` : make ovm bootable image for macos arm64
   - `wsl2_amd64`       : make ovm wsl2 rootfs distribute
 
 
