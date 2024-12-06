@@ -1,8 +1,10 @@
-# OVMCORE Builder for WSL2
-A simple & clean & pure bash script used to build ovmcore for WSL2 :)
+# `make` commands
+  - `make macos_arm64` : make ovm bootable image for macos arm64
+  - `wsl2_amd64`       : make ovm wsl2 rootfs distribute
 
-# How to Build
-```sh
-# Must in root
-# ./make amd64_wsl2
-```
+
+
+# Development environment
+- SKIP_BUILD_PROOT=true: Skip build proot
+- SKIP_APT_GET_INSTALL: Skip apt update && apt install -y required package
+
