@@ -4,9 +4,10 @@ if [[ $SKIP_APT_GET_INSTALL == "true" ]]; then
 	echo '$SKIP_APT_GET_INSTALL == true, skip install required package'
 else
 	sudo -E apt update
-	sudo -E apt install wget
+	sudo -E apt -y install wget
 
 fi
+
 preinstalled_packages="
 	bash
 	openrc
@@ -23,6 +24,16 @@ preinstalled_packages="
 	"
 rootfs_url="https://dl-cdn.alpinelinux.org/alpine/v3.20/releases/x86_64/alpine-minirootfs-3.20.2-x86_64.tar.gz"
 checksum="9bbb7008afafb1579ed8f10ee3bdbddccc4275e9  alpine_rootfs.tar.gz"
+
+pack_rootfs() {
+	echo "=== Pack rootfs ==="
+	set -x
+	sudo apt install -y zstd
+	cd "$output/target_rootfs" && tar -cvf $output/$target_profile.tar ./*
+	cd "$output"               && zstd -16 $target_profile.tar
+	set +x
+}
+
 
 bootstrap_alpine() {
 	wget "$rootfs_url" --output-document="$output/alpine_rootfs.tar.gz"
@@ -57,12 +68,25 @@ bootstrap_alpine() {
 			-w /root \
 			-0 /bin/su -c "apk update;apk add $pkgs;mkdir -p /etc/runlevels/stop_all"
 	fi
+}
 
-	cd $workspace
+copy_layer() {
+	set -x
+	cp -rf $workspace/layers/$target_profile/* $output/target_rootfs || {
+		echo "Copy $workspace/layers/$target_profile/* into $output/target_rootfs/ failed"
+		exit 100
+	}
+	set +x
 }
 
 echo "=== Bootstrap Alpine ==="
+if [[ -z $workspace ]] && [[ -z $output ]];then
+	echo 'Error: $workspace or $output empty'
+	exit 100
+fi
+
 echo workspace: $workspace
 echo output: $output
-
 bootstrap_alpine
+copy_layer
+pack_rootfs

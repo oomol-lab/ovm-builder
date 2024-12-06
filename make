@@ -55,25 +55,11 @@ parse_profile() {
 	}
 }
 
-pack_rootfs() {
-	echo "=== Pack rootfs ==="
-	set -x
-	sudo apt install zstd
-	cd "$output/target_rootfs" && tar -cvf $output/$target_profile ./*
-	cd "$output"               && zstd -16 $target_profile
-	set +x
-}
 
 usage() {
 	cat ./docs/help
 }
 
-copy_layer() {
-	cd $workspace/layers/$target_profile
-	set -x
-	cp -rf $workspace/layers/$target_profile/* $output/target_rootfs
-	set +x
-}
 
 main() {
 	cd "$(dirname $0)"
@@ -91,12 +77,11 @@ main() {
 
 	if [[ $# -eq 1 ]]; then
 		target_profile=$1
+		export target_profile
 	fi
 
 	check_distro
 	parse_profile
-	copy_layer
-	pack_rootfs
 }
 
 main "$@"
