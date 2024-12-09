@@ -31,22 +31,22 @@ parse_profile() {
 	echo TARGET_ARCH: $TARGET_ARCH # only support arm64
 
 	echo "Build ${TARGET_ARCH} on ${HOST_ARCH}"
+
+	if [[ $SKIP_BUILD_PROOT == "true" ]]; then
+		echo '$SKIP_BUILD_PROOT == true, skip build proot'
+	else
+		bash +x ${workspace}/subfunc/build_proot.sh || {
+			echo "Error: Build proot failed"
+			exit 100
+		}
+	fi
+
 	if [[ "${HOST_ARCH}" == "${TARGET_ARCH}" ]]; then
 		export NATIVE_BUILD=true
 		echo "current we do native build..."
 	else
 		export CROSS_BUILD=true
 		echo "current we do cross build, building proot...."
-
-		# FOR DEV
-		if [[ $SKIP_BUILD_PROOT == "true" ]]; then
-			echo '$SKIP_BUILD_PROOT == true, skip build proot'
-		else
-			bash +x ${workspace}/subfunc/build_proot.sh || {
-				echo "Error: Build proot failed"
-				exit 100
-			}
-		fi
 	fi
 
 	bash +x $workspace/target_builder/$target_profile || {
@@ -55,11 +55,9 @@ parse_profile() {
 	}
 }
 
-
 usage() {
 	cat ./docs/help
 }
-
 
 main() {
 	cd "$(dirname $0)"
