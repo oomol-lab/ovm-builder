@@ -1,0 +1,20 @@
+name: Build WSL2 Profile
+on:
+  push:
+    branches:
+      - 'main'
+      - 'dev'
+  pull_request:
+    branches:
+      - 'main'
+      - 'dev'
+
+jobs:
+  build:
+    runs-on: ubuntu-24.04
+    steps:
+      - name: Checkout
+        uses: 'actions/checkout@v4'
+
+      - name: Build
+        run:  sudo -E ./make wsl2_amd64
