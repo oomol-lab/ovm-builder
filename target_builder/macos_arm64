@@ -75,7 +75,7 @@ bootstrap_alpine() {
 			}
 		else
 			set -x
-			sudo -E proot --qemu=qemu-x86_64-static --rootfs=./target_rootfs \
+			sudo -E proot --qemu=qemu-aarch64-static --rootfs=./target_rootfs \
 				-b /dev:/dev \
 				-b /sys:/sys \
 				-b /proc:/proc \
