@@ -91,6 +91,17 @@ bootstrap_alpine() {
 	sync
 }
 
+pack_rootfs() {
+	set -x
+	cd $output && {
+		zstd --force -16 alpine_uefi_bootable.img || {
+			echo "Error: Compress alpine_uefi_bootable.img failed"
+			exit 100
+		}
+	} && cd $workspace
+	set +x
+}
+
 echo "=== Bootstrap Alpine ==="
 if [[ -z $workspace ]] && [[ -z $output ]]; then
 	echo 'Error: $workspace or $output empty'
@@ -101,4 +112,4 @@ echo workspace: $workspace
 echo output: $output
 bootstrap_alpine
 #copy_layer
-#pack_rootfs
+pack_rootfs

@@ -5,6 +5,6 @@
 
 
 # Development environment
-- SKIP_BUILD_PROOT=true: Skip build proot
-- SKIP_APT_GET_INSTALL: Skip apt update && apt install -y required package
+- `SKIP_BUILD_PROOT=true`: Skip build proot
+- `SKIP_APT_GET_INSTALL=true`: Skip apt update && apt install -y required package
 
