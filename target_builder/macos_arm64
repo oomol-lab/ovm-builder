@@ -25,11 +25,13 @@ rootfs_part_uuid="d1e46927-eb5d-4fbf-986a-7e5581f37a16"
 efi_part_uuid="6729-82AB"
 
 # file_name:sha1sum
-sha1sum="8eafdf68d20b327382a4a7fbd873803e49287b75  alpine_uefi_bootable.img.zst"
+sha1sum="cceb5153fa0bc45dc921494af35e4d61543dfbe5  alpine_uefi_bootable.img.zst"
 
 bootstrap_alpine() {
+	set -x
 	rm -rf "$output/alpine_uefi_bootable.img.zst"
-	wget -c "$bootable_url" --output-document="$output/alpine_uefi_bootable.img.zst"
+	wget -c "$bootable_url" --output-document="$output/alpine_uefi_bootable.img.zst" --output-file=/tmp/log_download_alpine_uefi_bootable.img.txt
+	set +x
 	echo "$sha1sum" >$output/alpine_uefi_bootable.img.zst.sha1sum
 
 	cd $output && sha1sum -c alpine_uefi_bootable.img.zst.sha1sum || {
@@ -57,38 +59,58 @@ bootstrap_alpine() {
 		echo http://dl-cdn.alpinelinux.org/alpine/v3.20/community >>target_rootfs/etc/apk/repositories
 	} && cd $workspace
 
+	# set qemu_flag if CROSS_BUILD
+	if [[ $CROSS_BUILD == true ]]; then
+		qemu_flag='--qemu=qemu-aarch64-static'
+	else
+		qemu_flag=''
+	fi
+
 	# Install required package into rootfs
+	pkgs=$(echo $preinstalled_packages | xargs)
+	set -x
 	cd $output && {
-		pkgs=$(echo $preinstalled_packages | xargs)
-		if [[ $NATIVE_BUILD == true ]]; then
-			set -x
-			sudo -E proot --rootfs=./target_rootfs \
-				-b /dev:/dev \
-				-b /sys:/sys \
-				-b /proc:/proc \
-				-b /etc/resolv.conf:/etc/resolv.conf \
-				-w /root \
-				-0 /bin/su -c "apk update;apk add $pkgs" || {
-				set +x
-				echo "Error: proot into rootfs failed"
-				exit 100
-			}
-		else
-			set -x
-			sudo -E proot --qemu=qemu-aarch64-static --rootfs=./target_rootfs \
-				-b /dev:/dev \
-				-b /sys:/sys \
-				-b /proc:/proc \
-				-b /etc/resolv.conf:/etc/resolv.conf \
-				-w /root \
-				-0 /bin/su -c "apk update;apk add $pkgs" || {
-				set +x
-				echo "Error: proot into rootfs failed"
-				exit 100
-			}
-		fi
+		sudo -E proot $qemu_flag --rootfs=./target_rootfs \
+			-b /dev:/dev \
+			-b /sys:/sys \
+			-b /proc:/proc \
+			-b /etc/resolv.conf:/etc/resolv.conf \
+			-w /root \
+			-0 /bin/su -c "apk update;apk add $pkgs" || {
+			echo "Error: proot into rootfs failed"
+			exit 100
+		}
 	} && cd $workspace
+	set +x
+
+	echo "Generat ssh keys and copy into rootfs"
+	set -x
+	cd $output && {
+		sudo -E proot $qemu_flag --rootfs=./target_rootfs \
+			-b /dev:/dev \
+			-b /sys:/sys \
+			-b /proc:/proc \
+			-b /etc/resolv.conf:/etc/resolv.conf \
+			-w /root \
+			-0 /bin/su -c 'rm -rf /root/.ssh/ovm_id && ssh-keygen  -f /root/.ssh/ovm_id  -N "" && cat /root/.ssh/ovm_id.pub >> /root/.ssh/authorized_keys' || {
+			echo "Error: proot into rootfs failed"
+			exit 100
+		}
+	} && cd $workspace
+
+	sudo -E rm -rf /tmp/ovm_ssh
+	sudo -E cp -rf $output/target_rootfs/root/.ssh /tmp/ovm_ssh
+	set +x
 	sync
+
+	set -x
+	cd $workspace && sudo -E umount -R $output/target_rootfs || {
+		echo "Error: umount $output/target_rootfs failed"
+	}
+	set +x
+}
+copy_layer(){
+	echo "INFO: Copy $target_profile layers files"
 }
 
 pack_rootfs() {
@@ -110,6 +132,8 @@ fi
 
 echo workspace: $workspace
 echo output: $output
+set -e
 bootstrap_alpine
-#copy_layer
+copy_layer
 pack_rootfs
+set -e
