@@ -1,0 +1,26 @@
+#!/sbin/openrc-run
+name="mount /tmp/initfs"
+
+depend() {
+	before podman
+}
+
+start_pre() {
+	modprobe virtiofs && echo "virtiofs kernel modules loaded" || echo "Error: virtiofs kernel module load failed"
+}
+
+start() {
+	mount -m -t virtiofs c5c8073159f40aa69d83a1e6c7aafb16b1e5 /tmp/initfs && {
+		echo 'Mount /tmp/initfs done'
+		echo 'Exec ignition scripts....'
+		bash +x /tmp/initfs/ign.sh && {
+			echo "Ignition script exec done"
+		} || {
+			echo "Error: Ignition scripts exec failed"
+		}
+	} || {
+		echo " Error: Mount virtiofs /tmp/initfs failed"
+	}
+	umount /boot/efi/
+	eend 0
+}
