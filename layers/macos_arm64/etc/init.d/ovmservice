@@ -1,3 +1,17 @@
+#!/sbin/openrc-run
+name="ovm oneshut service scripts"
+
+depend() {
+	before podman sshd
+}
+
+start_pre() {
+	modprobe virtiofs || {
+		echo "Error: virtiofs kernel module load failed"
+		exit 100
+	}
+}
+
 format_and_mount_var() {
 	if [[ ! -b /dev/vdb ]]; then
 		echo "/dev/vdb not find"
@@ -45,15 +59,20 @@ mount_initfs() {
 	ign_sh="/tmp/initfs/ovm_ign.sh"
 	initfs_uuid=c5c8073159f40aa69d83a1e6c7aafb16b1e5
 	initfs_mount_point="/tmp/initfs"
-	mount -m -t virtiofs "${initfs_uuid}" "$initfs_mount_point" && {
+	mount -m -t virtiofs "${initfs_uuid}" "$initfs_mount_point" || {
 		echo " Error: Mount virtiofs /tmp/initfs failed"
 		exit 100
+	}
 
-	}
-	bash +x "${ign_sh}" && {
-		echo "Error: Ignition scripts exec failed"
+	if [[ -f "${ign_sh}" ]]; then
+		bash +x "${ign_sh}" || {
+			echo "Error: Ignition scripts exec failed"
+			exit 100
+		}
+	else
+		echo "Error: ${ign_sh} not find"
 		exit 100
-	}
+	fi
 }
 
 umount_efi() {
@@ -63,7 +82,11 @@ umount_efi() {
 	umount /boot/efi/
 }
 
-umount_efi
-format_and_mount_var
-mount_initfs
-sync
+start() {
+	umount_efi
+	# Format /dev/vdb with $uuid first
+	format_and_mount_var
+	# Mount /tmp/initfs(virtioFS), and exec $ign_sh
+	mount_initfs
+	sync
+}
