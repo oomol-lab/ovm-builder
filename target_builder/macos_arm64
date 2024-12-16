@@ -17,6 +17,8 @@ preinstalled_packages="
 	findmnt
 	blkid
 	mount
+	tar
+	zstd
 	"
 rootfs_url=""
 bootable_url="https://github.com/oomol/builded/releases/download/v1.1/alpine_uefi_bootable.img.zst"
