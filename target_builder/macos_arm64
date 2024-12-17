@@ -104,12 +104,6 @@ bootstrap_alpine() {
 	sudo -E cp -rf $output/target_rootfs/root/.ssh /tmp/ovm_ssh
 	set +x
 	sync
-
-	set -x
-	cd $workspace && sudo -E umount -R $output/target_rootfs || {
-		echo "Error: umount $output/target_rootfs failed"
-	}
-	set +x
 }
 copy_layer() {
 	echo "INFO: Copy $target_profile layers files"
@@ -126,7 +120,7 @@ copy_layer() {
 		else
 			find ./ -type f -exec sed -i.bak 's/VM_CONSOLE_DEVICE/hvc0/g' {} + # Replace VM_CONSOLE_DEVICE to hvc0
 		fi
-		cp -rf ./* "$output/$target_rootfs" || {
+		sudo -E cp -rf ./* "$output/target_rootfs" || {
 			echo "Copy layer into $output/$target_rootfs failed"
 			exit 100
 		}
