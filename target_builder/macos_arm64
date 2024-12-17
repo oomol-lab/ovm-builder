@@ -136,17 +136,10 @@ copy_layer() {
 			-b /proc:/proc \
 			-b /etc/resolv.conf:/etc/resolv.conf \
 			-w /root \
-			-0 /bin/su -c "chmod +x /etc/init.d/ovmservice ; rc-update add ovmservice default" || {
+			-0 /bin/su -c "chmod +x /etc/init.d/ovmservice ; rc-update add ovmservice default ; rc-update add podman default" || {
 			echo "Error: add ovmservice into default stage failed"
 			exit 100
 		}
-	} && cd $workspace
-
-	cd $output && {
-		umount -R ./target_rootfs
-	} || {
-		echo "Error: failed to umount $output/target_rootfs"
-		exit 100
 	} && cd $workspace
 
 	set +x
@@ -155,6 +148,14 @@ copy_layer() {
 
 pack_rootfs() {
 	set -x
+
+	cd $output && {
+		umount -R ./target_rootfs
+	} || {
+		echo "Error: failed to umount $output/target_rootfs"
+		exit 100
+	} && cd $workspace
+
 	cd $output && {
 		zstd --force alpine_uefi_bootable.img && {
 			sha1sum alpine_uefi_bootable.img.zst >alpine_uefi_bootable.img.zst.sha1sum
