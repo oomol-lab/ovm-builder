@@ -31,7 +31,7 @@ sha1sum="cceb5153fa0bc45dc921494af35e4d61543dfbe5  alpine_uefi_bootable.img.zst"
 
 bootstrap_alpine() {
 	set -x
-	rm -rf "$output/alpine_uefi_bootable.img.zst"
+	sudo -E rm -rf "$output/alpine_uefi_bootable.img.zst"
 	wget -c "$bootable_url" --output-document="$output/alpine_uefi_bootable.img.zst" --output-file=/tmp/log_download_alpine_uefi_bootable.img.txt
 	set +x
 	echo "$sha1sum" >$output/alpine_uefi_bootable.img.zst.sha1sum

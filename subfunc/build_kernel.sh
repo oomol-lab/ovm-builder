@@ -148,17 +148,15 @@ pack_kernel() {
 
 useage() {
 	echo '
-# Envs:
-# CLEAN_BUILD = true 	      : clean all output and build
-# PULL_SOURCE_BUILD = true    : pull source code before build, all changes will be droped
-# MENU_CONFIG = true 	      : before build, make menuconfig
-# N_PROC = number of cpu core : make -j $n_proc
-
-# Args:
-# arg[1] = $kernel_version
-# arg[2] = $board_picked
-# arg[3] = $kernel_config
-# arg[4] = $out_dir
+## Usage
+```sh
+$ ./build_kernel.sh \
+    --kernel-version=<next|mainline|stable|longterm> \
+    --kernel-config=tmp/config \
+    --menuconfig  \
+    --dts=rockchip/rk3399-eaidk-610.dts # or --dtb=/tmp/mydtb.dtb \
+    --output=/tmp/kernel_out
+```
 '
 
 }

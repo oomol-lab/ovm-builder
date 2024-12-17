@@ -7,7 +7,7 @@ echo  output: $output
 
 set -ex
 bash +x "$workspace/subfunc/install_package.sh"
-rm -rf $output/build_proot
+sudo -E rm -rf $output/build_proot
 git clone https://github.com/proot-me/proot $output/build_proot
 
 cd $output/build_proot
