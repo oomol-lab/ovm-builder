@@ -136,7 +136,11 @@ copy_layer() {
 			-b /proc:/proc \
 			-b /etc/resolv.conf:/etc/resolv.conf \
 			-w /root \
-			-0 /bin/su -c "chmod +x /etc/init.d/ovmservice ; rc-update add ovmservice default ; rc-update add podman default" || {
+			-0 /bin/su -c "chmod +x /etc/init.d/ovmservice && 
+			rc-update add ovmservice default &&
+			rc-update del networking boot && 
+			rc-update add networking default &&
+		       	rc-update add podman default" || {
 			echo "Error: add ovmservice into default stage failed"
 			exit 100
 		}
