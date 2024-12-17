@@ -116,9 +116,9 @@ copy_layer() {
 	set -x
 	cd ./layers/$target_profile && {
 		if [[ ${VM_PROVIDER} == "qemu" ]]; then
-			find ./ -type f -exec sed -i.bak 's/VM_CONSOLE_DEVICE/ttyAMA0/g' {} + # Replace VM_CONSOLE_DEVICE to ttyAMA0
+			find ./ -type f -exec sed -i 's/VM_CONSOLE_DEVICE/ttyAMA0/g' {} + # Replace VM_CONSOLE_DEVICE to ttyAMA0
 		else
-			find ./ -type f -exec sed -i.bak 's/VM_CONSOLE_DEVICE/hvc0/g' {} + # Replace VM_CONSOLE_DEVICE to hvc0
+			find ./ -type f -exec sed -i 's/VM_CONSOLE_DEVICE/hvc0/g' {} + # Replace VM_CONSOLE_DEVICE to hvc0
 		fi
 		sudo -E cp -rf ./* "$output/target_rootfs" || {
 			echo "Copy layer into $output/$target_rootfs failed"
