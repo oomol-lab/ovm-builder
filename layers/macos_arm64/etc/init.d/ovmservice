@@ -83,6 +83,8 @@ umount_efi() {
 }
 
 start() {
+	update-grub
+	sync
 	umount_efi
 	# Format /dev/vdb with $uuid first
 	format_and_mount_var
