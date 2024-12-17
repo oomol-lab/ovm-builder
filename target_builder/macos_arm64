@@ -140,7 +140,9 @@ copy_layer() {
 pack_rootfs() {
 	set -x
 	cd $output && {
-		zstd --force alpine_uefi_bootable.img || {
+		zstd --force alpine_uefi_bootable.img && {
+			sha1sum alpine_uefi_bootable.img.zst >alpine_uefi_bootable.img.zst.sha1sum
+		} || {
 			echo "Error: Compress alpine_uefi_bootable.img failed"
 			exit 100
 		}
