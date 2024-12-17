@@ -22,5 +22,4 @@ tty6::respawn:/sbin/getty 38400 tty6
 ::shutdown:/sbin/openrc shutdown
 
 # enable login on alternative console
-ttyAMA0::respawn:/sbin/getty -L 0 ttyAMA0 vt100
-#hvc0::respawn:/sbin/getty -L 0 hvc0 vt100
+VM_CONSOLE_DEVICE::respawn:/sbin/getty -L 0 VM_CONSOLE_DEVICE vt100

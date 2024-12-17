@@ -111,8 +111,27 @@ bootstrap_alpine() {
 	}
 	set +x
 }
-copy_layer(){
+copy_layer() {
 	echo "INFO: Copy $target_profile layers files"
+	export VM_CONSOLE_DEVICE=hvc0
+	cd $workspace || {
+		echo 'Error: change dir to $workspace failed'
+		exit 100
+	}
+
+	set -x
+	cd ./layers/$target_profile && {
+		# Now we are in ./layers/$target_profile
+		find ./ -type f -exec sed -i.bak 's/VM_CONSOLE_DEVICE/hvc0/g' {} + # Replace VM_CONSOLE_DEVICE to hvc0
+		cp -rf ./* "$output/$target_rootfs" || {
+			echo "Copy layer into $output/$target_rootfs failed"
+			exit 100
+		}
+	} || {
+		echo 'Error: change dir to ./layers/$target_profile failed'
+		exit 100
+	} && cd $workspace
+	set +x
 }
 
 pack_rootfs() {
@@ -134,8 +153,6 @@ fi
 
 echo workspace: $workspace
 echo output: $output
-set -e
 bootstrap_alpine
 copy_layer
 pack_rootfs
-set -e
