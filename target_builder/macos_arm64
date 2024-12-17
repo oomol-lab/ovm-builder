@@ -121,8 +121,11 @@ copy_layer() {
 
 	set -x
 	cd ./layers/$target_profile && {
-		# Now we are in ./layers/$target_profile
-		find ./ -type f -exec sed -i.bak 's/VM_CONSOLE_DEVICE/hvc0/g' {} + # Replace VM_CONSOLE_DEVICE to hvc0
+		if [[ ${VM_PROVIDER} == "qemu" ]]; then
+			find ./ -type f -exec sed -i.bak 's/VM_CONSOLE_DEVICE/ttyAMA0/g' {} + # Replace VM_CONSOLE_DEVICE to ttyAMA0
+		else
+			find ./ -type f -exec sed -i.bak 's/VM_CONSOLE_DEVICE/hvc0/g' {} + # Replace VM_CONSOLE_DEVICE to hvc0
+		fi
 		cp -rf ./* "$output/$target_rootfs" || {
 			echo "Copy layer into $output/$target_rootfs failed"
 			exit 100
@@ -137,7 +140,7 @@ copy_layer() {
 pack_rootfs() {
 	set -x
 	cd $output && {
-		zstd --force -16 alpine_uefi_bootable.img || {
+		zstd --force alpine_uefi_bootable.img || {
 			echo "Error: Compress alpine_uefi_bootable.img failed"
 			exit 100
 		}
