@@ -146,6 +146,19 @@ copy_layer() {
 		}
 	} && cd $workspace
 
+	cd $output && {
+		sudo -E proot $qemu_flag --rootfs=./target_rootfs \
+			-b /dev:/dev \
+			-b /sys:/sys \
+			-b /proc:/proc \
+			-b /etc/resolv.conf:/etc/resolv.conf \
+			-w /root \
+			-0 /bin/su -c "echo rc_parallel=YES >> /etc/rc.conf" || {
+			echo "Error: enable rc_parallel failed"
+			exit 100
+		}
+	} && cd $workspace
+
 	set +x
 	sync # must do sync !
 }
