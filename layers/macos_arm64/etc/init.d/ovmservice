@@ -82,10 +82,17 @@ umount_efi() {
 	umount /boot/efi/
 }
 
-start() {
-	update-grub
+# Update grub only running at first boot
+update_grub(){
+	if [[ -f /.first_boot ]];then
+	update-grub && rm /.first_boot
 	sync
+	fi
+}
+
+start() {
 	umount_efi
+	update_grub
 	# Format /dev/vdb with $uuid first
 	format_and_mount_var
 	# Mount /tmp/initfs(virtioFS), and exec $ign_sh
