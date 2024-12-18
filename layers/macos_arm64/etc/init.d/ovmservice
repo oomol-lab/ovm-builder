@@ -83,16 +83,23 @@ umount_efi() {
 }
 
 # Update grub only running at first boot
-update_grub(){
-	if [[ -f /.first_boot ]];then
-	update-grub && rm /.first_boot
-	sync
+update_grub() {
+	if [[ -f /.first_boot ]]; then
+		update-grub && rm /.first_boot
+		sync
 	fi
 }
 
+# Delete any proxy environment
+delete_proxy_config() {
+	rm -rf /etc/profile.d/proxy.sh
+}
+
 start() {
-	umount_efi
+	delete_proxy_config
+	# update_grub happend before umount_efi
 	update_grub
+	umount_efi
 	# Format /dev/vdb with $uuid first
 	format_and_mount_var
 	# Mount /tmp/initfs(virtioFS), and exec $ign_sh
