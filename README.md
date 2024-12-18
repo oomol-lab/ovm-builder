@@ -14,5 +14,16 @@
 ```bash
 docker build -t ubuntu-noble-build .
 # Only if you need proxy
-docker build --build-arg http_proxy=http://192.168.1.250:2020 --build-arg https_proxy=http://192.168.1.250:2020 -t ubuntu-noble-build .
+docker build \
+    --build-arg http_proxy=http://192.168.1.250:2020 \
+    --build-arg https_proxy=http://192.168.1.250:2020 \
+    -t ubuntu-noble-build .
+
+
+# Run container to build bootable-arm64.img.zst
+docker run -it --privileged -v ./output:/root/MkRoot/output ubuntu-noble-build
+# Only if you need proxy
+docker run -it --privileged -v ./output:/root/MkRoot/output \
+    -e http_proxy=http://192.168.1.250:2020 \
+    -e https_proxy=http://192.168.1.250:2020 ubuntu-noble-build
 ```
