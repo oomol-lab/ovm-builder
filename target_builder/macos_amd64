@@ -23,12 +23,11 @@ preinstalled_packages="
 	"
 rootfs_url=""
 bootable_url="https://github.com/oomol/builded/releases/download/v1.5/alpine_uefi_bootable-x86_64.img.zst"
+sha1sum="fc62a59289a3f4721bb7d44730ca5a631c592531"
 # the alpine_uefi_bootable.img.zst has ROOTFS and EFI partition
 rootfs_part_uuid="1db9dd50-085d-4d38-a911-ea4446d29875"
 efi_part_uuid="4cc17f62-ab8d-4593-b787-8a7bffd6b1ad"
 
-# file_name:sha1sum
-sha1sum="fc62a59289a3f4721bb7d44730ca5a631c592531  alpine_uefi_bootable.img.zst"
 
 clean_mapping() {
 	umount -R $output/target_rootfs >/dev/null 2>&1
@@ -51,7 +50,7 @@ bootstrap_alpine() {
 	wget -c "$bootable_url" --output-document="$output/${bootable_file_zst}" --output-file=/tmp/log_download_alpine_uefi_bootable.img.txt
 	set +x
 
-	echo "$sha1sum" >"$output/${sha1sum_file}"
+	echo "$sha1sum ${bootable_file_zst}" >"$output/${sha1sum_file}"
 	cd $output && sha1sum -c "${sha1sum_file}" || {
 		echo "Error: checksha1sum failed"
 		exit 100
@@ -224,5 +223,5 @@ echo output: $output
 clean_mapping
 bootstrap_alpine
 #copy_layer
-#pack_rootfs
+pack_rootfs
 clean_mapping
