@@ -27,7 +27,7 @@ sha1sum="fc62a59289a3f4721bb7d44730ca5a631c592531"
 # the alpine_uefi_bootable.img.zst has ROOTFS and EFI partition
 rootfs_part_uuid="1db9dd50-085d-4d38-a911-ea4446d29875"
 efi_part_uuid="4cc17f62-ab8d-4593-b787-8a7bffd6b1ad"
-
+bootable_file_zst="alpine_uefi_bootable.img.zst"
 
 clean_mapping() {
 	umount -R $output/target_rootfs >/dev/null 2>&1
@@ -41,9 +41,8 @@ clean_mapping() {
 }
 
 bootstrap_alpine() {
-	bootable_file_zst="alpine_uefi_bootable.img.zst"
-	sha1sum_file="${bootable_file_zst}.sha1sum"
 	bootable_file="${bootable_file_zst%.*}"
+	sha1sum_file="${bootable_file_zst}.sha1sum"
 
 	set -x
 	sudo -E rm -rf "$output/${bootable_file_zst}"
@@ -192,6 +191,8 @@ copy_layer() {
 }
 
 pack_rootfs() {
+	bootable_file="${bootable_file_zst%.*}"
+	sha1sum_file="${bootable_file_zst}.sha1sum"
 	set -x
 
 	cd $output && {
@@ -202,8 +203,8 @@ pack_rootfs() {
 	} && cd $workspace
 
 	cd $output && {
-		zstd --force alpine_uefi_bootable.img && {
-			sha1sum alpine_uefi_bootable.img.zst >alpine_uefi_bootable.img.zst.sha1sum
+		zstd --force $bootable_file && {
+			sha1sum "${bootable_file_zst}" >"${sha1sum_file}"
 		} || {
 			echo "Error: Compress alpine_uefi_bootable.img failed"
 			exit 100
