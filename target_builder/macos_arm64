@@ -30,7 +30,19 @@ efi_part_uuid="6729-82AB"
 # file_name:sha1sum
 sha1sum="cceb5153fa0bc45dc921494af35e4d61543dfbe5  alpine_uefi_bootable.img.zst"
 
+clean_mapping() {
+	umount -R $output/target_rootfs >/dev/null 2>&1
+	# Clean kpartx mapping devices
+	sudo -E losetup -a | grep alpine_uefi_bootable.img | cut -d ':' -f1 | while read -r item; do sudo -E kpartx -dv $item; done && {
+		sudo -E losetup -D
+	} || {
+		echo "Clean kpartx mapping failed"
+		exit 100
+	}
+}
+
 bootstrap_alpine() {
+
 	set -x
 	sudo -E rm -rf "$output/alpine_uefi_bootable.img.zst"
 	wget -c "$bootable_url" --output-document="$output/alpine_uefi_bootable.img.zst" --output-file=/tmp/log_download_alpine_uefi_bootable.img.txt
@@ -206,6 +218,8 @@ fi
 
 echo workspace: $workspace
 echo output: $output
+clean_mapping
 bootstrap_alpine
 copy_layer
 pack_rootfs
+clean_mapping

@@ -12,9 +12,9 @@
 
 ## Dockerfile
 ```bash
-docker build -t ubuntu-noble-build .
+docker build --no-cache -t ubuntu-noble-build .
 # Only if you need proxy
-docker build \
+docker build --no-cache \
     --build-arg http_proxy=http://192.168.1.250:2020 \
     --build-arg https_proxy=http://192.168.1.250:2020 \
     -t ubuntu-noble-build .
