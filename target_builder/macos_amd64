@@ -213,6 +213,17 @@ pack_rootfs() {
 	set +x
 }
 
+bootimage() {
+	cd "$workspace" || {
+		echo "Failed to change dir to workspace"
+		exit 100
+	}
+	bash +x ./subfunc/boot_raw_disk.sh "$output/$bootable_file" x86_64 && {
+		echo "Error: boot $output/$bootable_file failed"
+		exit 100
+	}
+}
+
 echo "=== Bootstrap Alpine ==="
 if [[ -z $workspace ]] && [[ -z $output ]]; then
 	echo 'Error: $workspace or $output empty'
@@ -226,3 +237,4 @@ bootstrap_alpine
 #copy_layer
 pack_rootfs
 clean_mapping
+#bootimage
