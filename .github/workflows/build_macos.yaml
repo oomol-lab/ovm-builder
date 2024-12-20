@@ -1,4 +1,4 @@
-name: Build MacOS Profile
+name: Build ARM64 MacOS Profile
 on:
   push:
     branches:
