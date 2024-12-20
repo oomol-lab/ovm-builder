@@ -1,16 +1,16 @@
 #! /usr/bin/env bash
-arm64_sha1sum="94dad848d92085d499f18ea5cb88e5df82bbfcbe"
-x86_64_sha1sum="0d51a587a6cc151999dc92dcea6df9d3c8042ae5"
+x86_64_loader_ld="ld-linux-x86-64.so.2"
+arm64_loader_ld="ld-linux-aarch64.so.1"
 
-host_arch=$(uname -p)
-if [[ $host_arch == aarch64 ]]; then
+host_arch=$(uname -m)
+if [[ $host_arch == aarch64 ]] || [[ $host_arch == arm64 ]]; then
 	host_arch=arm64
-	sha1sum_value=$arm64_sha1sum
+	ld_loader="$arm64_loader_ld"
 fi
 
-if [[ $host_arch == amd64 ]]; then
+if [[ $host_arch == amd64 ]] || [[ $host_arch == x86_64 ]]; then
 	host_arch=x86_64
-	sha1sum_value=$x86_64_sha1sum
+	ld_loader="$x86_64_loader_ld"
 fi
 
 check_envs() {
@@ -31,29 +31,32 @@ check_envs() {
 }
 
 download_qemu() {
-	sudo apt -y install xz-utils tar binutils
-	if [[ $(uname -s) == Linux ]]; then
+	if [[ "$(uname -s)" == "Linux" ]]; then
 		echo "INFO: Download qemu_bin-linux-$host_arch.tar.xz"
-		mkdir -p "$output" || {
-			echo 'Error: create output dir for download qemu_bin_tar failed'
-			exit 100
-		}
-
-		wget "https://github.com/oomol/builded/releases/download/v1.6/qemu_bin-linux-$host_arch.tar.xz" --output-document="$output/qemu_bin-linux-$host_arch.tar.xz" --output-file=/tmp/wget_qemu.log && {
-			echo "$sha1sum_value qemu_bin-linux-$host_arch.tar.xz" >"$output/qemu_bin-linux-$host_arch.tar.xz.sha1sum"
-		} || {
-			echo "Download Qemu failed"
-			exit 100
-		}
-
-		cd "$output" && {
-			tar -xvf "qemu_bin-linux-$host_arch.tar.xz" -C ./
-		} || {
-			echo "Extract qemu_bin-linux-arm64.tar.xz failed"
-			exit 100
-		} && cd "$workspace"
+		set -xe
+		sudo -E apt -y install xz-utils tar binutils zstd
+		mkdir -p "$output" && cd "$output"
+		wget "https://github.com/oomol/builded/releases/download/v1.6/qemu_bin-linux-$host_arch.tar.xz" \
+			--output-document="$output/qemu_bin-linux-$host_arch.tar.xz" \
+			--output-file=/tmp/wget_qemu.log
+		tar -xvf "qemu_bin-linux-$host_arch.tar.xz" -C ./ >/dev/null
+		cd "$workspace"
+		set +xe
+		echo "INFO: Download qemu_bin-linux-$host_arch.tar.xz done"
 	fi
+}
+
+test_qemu_bin() {
+	cd "$output"
+	set -xe
+	./qemu_bins/lib/$ld_loader --library-path ./qemu_bins/lib ./qemu_bins/bin/qemu-system-x86_64 --version >/dev/null
+	./qemu_bins/lib/$ld_loader --library-path ./qemu_bins/lib ./qemu_bins/bin/qemu-system-aarch64 --version >/dev/null
+	./qemu_bins/static_qemu/bin/qemu-x86_64 --version >/dev/null
+	./qemu_bins/static_qemu/bin/qemu-aarch64 --version >/dev/null
+	set -xe
+	cd "$workspace"
 }
 
 check_envs
 download_qemu
+test_qemu_bin
