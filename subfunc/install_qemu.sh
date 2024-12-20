@@ -47,11 +47,6 @@ download_qemu() {
 		}
 
 		cd "$output" && {
-			sha1sum -c qemu_bin-linux-$host_arch.tar.xz.sha1sum || {
-				echo "qemu_bin-linux-$host_arch.tar.xz.sha1sum check failed"
-				exit 100
-			}
-
 			tar -xvf "qemu_bin-linux-$host_arch.tar.xz" -C ./
 		} || {
 			echo "Extract qemu_bin-linux-arm64.tar.xz failed"

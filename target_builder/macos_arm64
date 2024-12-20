@@ -76,7 +76,7 @@ bootstrap_alpine() {
 
 	# set qemu_flag if CROSS_BUILD
 	if [[ $CROSS_BUILD == true ]]; then
-		qemu_flag='--qemu=qemu-aarch64-static'
+		qemu_flag="--qemu=$output/qemu_bins/static_qemu/bin/qemu-aarch64"
 	else
 		qemu_flag=''
 	fi

@@ -3,6 +3,6 @@ if [[ $SKIP_APT_GET_INSTALL == "true" ]]; then
 else
 	set -ex
 	sudo -E apt update
-	sudo -E apt install -y libarchive-dev libtalloc-dev uthash-dev build-essential git qemu-user-static
+	sudo -E apt install -y libarchive-dev libtalloc-dev uthash-dev build-essential git
 	set -xe
 fi

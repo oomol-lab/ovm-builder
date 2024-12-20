@@ -47,6 +47,15 @@ parse_profile() {
 		}
 	fi
 
+	if [[ $SKIP_INSTALL_QEMU == "true" ]]; then
+		echo "SKIP_INSTALL_QEMU set true, skip install qemu"
+	else
+		bash +x ${workspace}/subfunc/install_qemu.sh || {
+			echo "Error: Install qemu failed"
+			exit 100
+		}
+	fi
+
 	if [[ "${HOST_ARCH}" == "${TARGET_ARCH}" ]]; then
 		export NATIVE_BUILD=true
 		echo "current we do native build..."
