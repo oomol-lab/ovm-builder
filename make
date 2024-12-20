@@ -27,6 +27,12 @@ parse_profile() {
 	echo "HOST_ARCH: $HOST_ARCH"
 
 	TARGET_ARCH=$(echo "${target_profile}" | cut -d '_' -f 2)
+	if [[ "${TARGET_ARCH}" == 'aarch64' ]]; then
+		TARGET_ARCH=arm64
+	fi
+	if [[ "${TARGET_ARCH}" == 'x86_64' ]]; then
+		TARGET_ARCH=amd64
+	fi
 
 	echo TARGET_ARCH: $TARGET_ARCH # only support arm64
 
