@@ -19,7 +19,7 @@ boot_raw_arm64(){
 
 boot_raw_x86_64(){
 	echo "INFO:Boot x86_64 alpine disk"
-	echo ./qemu_bins/lib/ld-linux-aarch64.so.1 \
+	./qemu_bins/lib/ld-linux-aarch64.so.1 \
 		--library-path ./qemu_bins/lib  \
 		./qemu_bins/bin/qemu-system-x86_64  \
 		-nographic -cpu max -smp 4  -m 2G  \
