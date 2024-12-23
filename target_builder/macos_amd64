@@ -244,6 +244,7 @@ bootstrap_alpine
 umount_rootfs
 clean_mapping
 bootimage >/tmp/vm_boot_log 2>&1 &
+tail -f /tmp/vm_boot_log &
 while true; do
 	ssh -o ConnectTimeout=1 -o StrictHostKeyChecking=no -i /tmp/ovm_ssh/ovm_id root@127.0.0.1 -p10025 "update-grub && sync && halt" && {
 		echo Update-grub successful
