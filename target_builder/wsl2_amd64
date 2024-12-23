@@ -27,12 +27,12 @@ checksum="9bbb7008afafb1579ed8f10ee3bdbddccc4275e9  alpine_rootfs.tar.gz"
 
 
 pack_rootfs() {
-	if [[ -n $output ]]; then
+	if [[ -z $output ]]; then
 		echo "Env output empty"
 		exit 100
 	fi
 
-	if [[ -n $target_profile ]]; then
+	if [[ -z $target_profile ]]; then
 		echo "Env target_profile empty"
 		exit 100
 	fi
