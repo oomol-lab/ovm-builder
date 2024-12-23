@@ -42,29 +42,44 @@ check_envs() {
 boot_raw_arm64() {
 	check_envs
 	echo "INFO:Boot arm64 alpine disk"
+	set -x
+	"$output/qemu_bins/lib/$ld_loader" \
+		--library-path "$output/qemu_bins/lib" \
+		"$output/qemu_bins/bin/qemu-system-aarch64" -machine virt -cpu cortex-a72 -m 2048 \
+		-nographic \
+		-drive file="$raw_disk,format=raw,if=virtio" \
+		-bios "$output/qemu_bins/share/qemu/edk2-aarch64-code.fd" \
+		-netdev user,id=net0,restrict=n,hostfwd=tcp:127.0.0.1:10025-:22 \
+		-device e1000,netdev=net0 -device virtio-balloon-pci,id=balloon0
+	set +x
 }
 
 # Args1: bootable.img path
 boot_raw_x86_64() {
 	check_envs
 	echo "INFO:Boot $raw_disk"
-	mycmd="./qemu_bins/lib/$ld_loader --library-path ./qemu_bins/lib \
-		./qemu_bins/bin/qemu-system-x86_64 \
+	set -x
+	"$output/qemu_bins/lib/$ld_loader" \
+		--library-path "$output/qemu_bins/lib" \
+		"$output/qemu_bins/bin/qemu-system-x86_64" \
 		-nographic -cpu max -smp 4 -m 2G \
 		-netdev user,id=net0,restrict=n,hostfwd=tcp:127.0.0.1:10025-:22 \
 		-device e1000,netdev=net0 \
 		-device virtio-balloon-pci,id=balloon0 \
-		-drive file=$raw_disk,format=raw,if=virtio
-	"
-	echo "Run: $mycmd"
+		-drive file="$raw_disk,format=raw,if=virtio"
+	set -x
 }
 
 boot_raw_disk() {
 	check_envs
 	if [[ "$target_arch" == arm64 ]] || [[ "$target_arch" == aarch64 ]]; then
+		set -x
 		boot_raw_arm64 "$raw_disk"
+		set +x
 	elif [[ "$target_arch" == x86_64 ]] || [[ "$target_arch" == amd64 ]]; then
+		set -x
 		boot_raw_x86_64 "$raw_disk"
+		set +x
 	fi
 }
 

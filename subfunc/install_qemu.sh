@@ -47,8 +47,8 @@ download_qemu() {
 }
 
 test_qemu_bin() {
-	cd "$output"
 	set -xe
+	cd "$output"
 	./qemu_bins/lib/$ld_loader --library-path ./qemu_bins/lib ./qemu_bins/bin/qemu-system-x86_64 --version >/dev/null
 	./qemu_bins/lib/$ld_loader --library-path ./qemu_bins/lib ./qemu_bins/bin/qemu-system-aarch64 --version >/dev/null
 	./qemu_bins/static_qemu/bin/qemu-x86_64 --version >/dev/null
