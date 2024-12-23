@@ -21,7 +21,6 @@ preinstalled_packages="
 	zstd
 	tzdata
 	"
-rootfs_url=""
 bootable_url="https://github.com/oomol/builded/releases/download/v1.1/alpine_uefi_bootable.img.zst"
 # the alpine_uefi_bootable.img.zst has ROOTFS and EFI partition
 rootfs_part_uuid="d1e46927-eb5d-4fbf-986a-7e5581f37a16"
@@ -42,37 +41,18 @@ clean_mapping() {
 }
 
 bootstrap_alpine() {
-
-	set -x
+	set -ex
 	sudo -E rm -rf "$output/alpine_uefi_bootable.img.zst"
 	wget -c "$bootable_url" --output-document="$output/alpine_uefi_bootable.img.zst" --output-file=/tmp/log_download_alpine_uefi_bootable.img.txt
-	set +x
-	echo "$sha1sum" >$output/alpine_uefi_bootable.img.zst.sha1sum
 
-	cd $output && sha1sum -c alpine_uefi_bootable.img.zst.sha1sum || {
-		echo "Error: checksha1sum failed"
-		exit 100
-	} && cd $workspace
-
-	cd $output && {
-		# Decompress alpine_uefi_bootable.img.zst
-		zstd -d -f alpine_uefi_bootable.img.zst || {
-			echo "Decompress alpine_uefi_bootable.img.zst failed"
-			exit 100
-		}
-		# Mapping the part into /dev/mapper/loopNpN
-		kpartx -av alpine_uefi_bootable.img &&
-			mount -m -U $rootfs_part_uuid ./target_rootfs &&
-			mount -m -U $efi_part_uuid ./target_rootfs/boot/efi || {
-			echo "Error: Mount alpine_uefi_bootable.img failed"
-			exit 100
-		}
-	} && cd $workspace
-
-	cd $output && {
-		# Podman live in http://dl-cdn.alpinelinux.org/alpine/v3.20/community
-		echo http://dl-cdn.alpinelinux.org/alpine/v3.20/community >>target_rootfs/etc/apk/repositories
-	} && cd $workspace
+	cd $output
+	zstd -d -f alpine_uefi_bootable.img.zst
+	# Mapping the part into /dev/mapper/loopNpN
+	kpartx -av alpine_uefi_bootable.img
+	mount -m -U $rootfs_part_uuid ./target_rootfs
+	mount -m -U $efi_part_uuid ./target_rootfs/boot/efi
+	echo http://dl-cdn.alpinelinux.org/alpine/v3.20/community >>"$output/target_rootfs/etc/apk/repositories"
+	set +ex
 
 	# set qemu_flag if CROSS_BUILD
 	if [[ $CROSS_BUILD == true ]]; then
@@ -83,50 +63,39 @@ bootstrap_alpine() {
 
 	# Install required package into rootfs
 	pkgs=$(echo $preinstalled_packages | xargs)
-	set -x
-	cd $output && {
-		sudo -E proot $qemu_flag --rootfs=./target_rootfs \
-			-b /dev:/dev \
-			-b /sys:/sys \
-			-b /proc:/proc \
-			-b /etc/resolv.conf:/etc/resolv.conf \
-			-w /root \
-			-0 /bin/su -c "apk update;apk add $pkgs" || {
-			echo "Error: proot into rootfs failed"
-			exit 100
-		}
-	} && cd $workspace
-	set +x
+	set -xe
+	sudo -E proot $qemu_flag --rootfs=./target_rootfs \
+		-b /dev:/dev \
+		-b /sys:/sys \
+		-b /proc:/proc \
+		-b /etc/resolv.conf:/etc/resolv.conf \
+		-w /root \
+		-0 /bin/su -c "apk update;apk add $pkgs"
+	set +xe
 
 	echo "Generat ssh keys and copy into rootfs"
-	set -x
-	cd $output && {
-		sudo -E proot $qemu_flag --rootfs=./target_rootfs \
-			-b /dev:/dev \
-			-b /sys:/sys \
-			-b /proc:/proc \
-			-b /etc/resolv.conf:/etc/resolv.conf \
-			-w /root \
-			-0 /bin/su -c 'rm -rf /root/.ssh/ovm_id && ssh-keygen  -f /root/.ssh/ovm_id  -N "" && cat /root/.ssh/ovm_id.pub >> /root/.ssh/authorized_keys' || {
-			echo "Error: proot into rootfs failed"
-			exit 100
-		}
-	} && cd $workspace
-
+	set -ex
+	sudo -E proot $qemu_flag --rootfs=./target_rootfs \
+		-b /dev:/dev \
+		-b /sys:/sys \
+		-b /proc:/proc \
+		-b /etc/resolv.conf:/etc/resolv.conf \
+		-w /root \
+		-0 /bin/su -c 'rm -rf /root/.ssh/ovm_id && ssh-keygen  -f /root/.ssh/ovm_id  -N "" && cat /root/.ssh/ovm_id.pub >> /root/.ssh/authorized_keys'
 	sudo -E rm -rf /tmp/ovm_ssh
 	sudo -E cp -rf $output/target_rootfs/root/.ssh /tmp/ovm_ssh
-	set +x
+	set +xe
 	sync
 }
 copy_layer() {
 	echo "INFO: Copy $target_profile layers files"
 	export VM_CONSOLE_DEVICE=hvc0
+
+	set -x
 	cd $workspace || {
 		echo 'Error: change dir to $workspace failed'
 		exit 100
 	}
-
-	set -x
 	cd ./layers/$target_profile && {
 		if [[ ${VM_PROVIDER} == "qemu" ]]; then
 			find ./ -type f -exec sed -i 's/VM_CONSOLE_DEVICE/ttyAMA0/g' {} + # Replace VM_CONSOLE_DEVICE to ttyAMA0
@@ -140,7 +109,7 @@ copy_layer() {
 	} || {
 		echo 'Error: change dir to ./layers/$target_profile failed'
 		exit 100
-	} && cd $workspace
+	}
 
 	cd $output && {
 		sudo -E proot $qemu_flag --rootfs=./target_rootfs \
@@ -157,7 +126,7 @@ copy_layer() {
 			echo "Error: add ovmservice into default stage failed"
 			exit 100
 		}
-	} && cd $workspace
+	}
 
 	cd $output && {
 		sudo -E proot $qemu_flag --rootfs=./target_rootfs \
@@ -170,7 +139,7 @@ copy_layer() {
 			echo "Error: enable rc_parallel failed"
 			exit 100
 		}
-	} && cd $workspace
+	}
 
 	cd $output && {
 		sudo -E proot $qemu_flag --rootfs=./target_rootfs \
@@ -183,21 +152,24 @@ copy_layer() {
 			echo "Error: enable rc_parallel failed"
 			exit 100
 		}
-	} && cd $workspace
+	}
 
 	set +x
+	cd $workspace || {
+		echo "Error: failed to change dir to workspace"
+		exit 100
+	}
 	sync # must do sync !
 }
 
 pack_rootfs() {
 	set -x
-
 	cd $output && {
 		umount -R ./target_rootfs
 	} || {
 		echo "Error: failed to umount $output/target_rootfs"
 		exit 100
-	} && cd $workspace
+	}
 
 	cd $output && {
 		zstd --force alpine_uefi_bootable.img && {
@@ -206,8 +178,12 @@ pack_rootfs() {
 			echo "Error: Compress alpine_uefi_bootable.img failed"
 			exit 100
 		}
-	} && cd $workspace
+	}
 	set +x
+	cd $workspace || {
+		echo "Change dir to  workspace failed"
+		exit 100
+	}
 }
 
 echo "=== Bootstrap Alpine ==="
