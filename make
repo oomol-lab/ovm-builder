@@ -50,7 +50,7 @@ parse_profile() {
 	if [[ $SKIP_INSTALL_QEMU == "true" ]]; then
 		echo "SKIP_INSTALL_QEMU set true, skip install qemu"
 	else
-		bash +x ${workspace}/subfunc/install_qemu.sh || {
+		output=$output workspace=$workspace bash +x ${workspace}/subfunc/install_qemu.sh || {
 			echo "Error: Install qemu failed"
 			exit 100
 		}

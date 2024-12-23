@@ -190,27 +190,33 @@ copy_layer() {
 	sync # must do sync !
 }
 
-pack_rootfs() {
-	bootable_file="${bootable_file_zst%.*}"
-	sha1sum_file="${bootable_file_zst}.sha1sum"
-	set -x
-
+umount_rootfs() {
 	cd $output && {
 		umount -R ./target_rootfs
 	} || {
 		echo "Error: failed to umount $output/target_rootfs"
 		exit 100
-	} && cd $workspace
+	}
+	cd $workspace || {
+		echo "Change dir to  workspace failed"
+		exit 100
+	}
+}
 
+pack_rootfs() {
 	cd $output && {
-		zstd --force $bootable_file && {
-			sha1sum "${bootable_file_zst}" >"${sha1sum_file}"
+		zstd --force alpine_uefi_bootable.img && {
+			sha1sum alpine_uefi_bootable.img.zst >alpine_uefi_bootable.img.zst.sha1sum
 		} || {
 			echo "Error: Compress alpine_uefi_bootable.img failed"
 			exit 100
 		}
-	} && cd $workspace
-	set +x
+	}
+
+	cd "$workspace" || {
+		echo "Change dir to  workspace failed"
+		exit 100
+	}
 }
 
 bootimage() {
@@ -230,11 +236,22 @@ if [[ -z $workspace ]] && [[ -z $output ]]; then
 	exit 100
 fi
 
-echo workspace: $workspace
-echo output: $output
+echo "workspace: $workspace"
+echo "output: $output"
 clean_mapping
 bootstrap_alpine
 #copy_layer
-pack_rootfs
+umount_rootfs
 clean_mapping
-bootimage
+bootimage >/tmp/vm_boot_log 2>&1 &
+while true; do
+	ssh -o ConnectTimeout=1 -o StrictHostKeyChecking=no -i /tmp/ovm_ssh/ovm_id root@127.0.0.1 -p10025 "update-grub && sync && halt" && {
+		echo Update-grub successful
+		break
+	} || {
+		echo "Try ssh into vm again..."
+		sleep 2
+		continue
+	}
+done
+pack_rootfs
