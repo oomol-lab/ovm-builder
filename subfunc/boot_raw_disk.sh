@@ -63,6 +63,7 @@ boot_raw_x86_64() {
 		--library-path "$output/qemu_bins/lib" \
 		"$output/qemu_bins/bin/qemu-system-x86_64" \
 		-nographic -cpu max -smp 4 -m 2G \
+		-bios "$output/qemu_bins/share/qemu/edk2-x86_64-code.fd" \
 		-netdev user,id=net0,restrict=n,hostfwd=tcp:127.0.0.1:10025-:22 \
 		-device e1000,netdev=net0 \
 		-device virtio-balloon-pci,id=balloon0 \

@@ -2,6 +2,8 @@
 x86_64_loader_ld="ld-linux-x86-64.so.2"
 arm64_loader_ld="ld-linux-aarch64.so.1"
 
+sudo -E apt install wget
+
 host_arch=$(uname -m)
 if [[ $host_arch == aarch64 ]] || [[ $host_arch == arm64 ]]; then
 	host_arch=arm64

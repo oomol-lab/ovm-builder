@@ -199,17 +199,6 @@ pack_rootfs() {
 	}
 }
 
-bootimage() {
-	cd "$workspace" || {
-		echo "Failed to change dir to workspace"
-		exit 100
-	}
-
-	output=$output workspace=$workspace bash +x ./subfunc/boot_raw_disk.sh "$output/$bootable_file" arm64 || {
-		echo "Error: boot $output/$bootable_file failed"
-		exit 100
-	}
-}
 
 try_ssh_into_vm() {
 	while true; do
@@ -242,8 +231,5 @@ umount_rootfs
 clean_mapping
 
 # Final stage: boot raw disk and do update-grub
-bootimage >/tmp/vm_boot_log 2>&1 &
-tail -f /tmp/vm_boot_log &
-try_ssh_into_vm
 pack_rootfs
 exit 0
