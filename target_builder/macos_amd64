@@ -226,7 +226,7 @@ echo "workspace: $workspace"
 echo "output: $output"
 clean_mapping
 bootstrap_alpine
-#copy_layer
+copy_layer
 umount_rootfs
 clean_mapping
 
