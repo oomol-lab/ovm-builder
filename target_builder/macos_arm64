@@ -25,9 +25,7 @@ bootable_url="https://github.com/oomol/builded/releases/download/v1.1/alpine_uef
 # the alpine_uefi_bootable.img.zst has ROOTFS and EFI partition
 rootfs_part_uuid="d1e46927-eb5d-4fbf-986a-7e5581f37a16"
 efi_part_uuid="6729-82AB"
-
-# file_name:sha1sum
-sha1sum="cceb5153fa0bc45dc921494af35e4d61543dfbe5  alpine_uefi_bootable.img.zst"
+bootable_file_zst="alpine_uefi_bootable.img.zst"
 
 clean_mapping() {
 	umount -R $output/target_rootfs >/dev/null 2>&1
@@ -41,16 +39,19 @@ clean_mapping() {
 }
 
 bootstrap_alpine() {
+	bootable_file="${bootable_file_zst%.*}"
+
 	set -ex
-	sudo -E rm -rf "$output/alpine_uefi_bootable.img.zst"
-	wget -c "$bootable_url" --output-document="$output/alpine_uefi_bootable.img.zst" --output-file=/tmp/log_download_alpine_uefi_bootable.img.txt
+	sudo -E rm -rf "$output/${bootable_file_zst}"
+	wget -c "$bootable_url" --output-document="$output/${bootable_file_zst}" --output-file=/tmp/log_download_alpine_uefi_bootable.img.txt
 
 	cd $output
-	zstd -d -f alpine_uefi_bootable.img.zst
+	zstd -d -f "${bootable_file_zst}"
 	# Mapping the part into /dev/mapper/loopNpN
-	kpartx -av alpine_uefi_bootable.img
+	kpartx -av ${bootable_file}
 	mount -m -U $rootfs_part_uuid ./target_rootfs
 	mount -m -U $efi_part_uuid ./target_rootfs/boot/efi
+
 	echo http://dl-cdn.alpinelinux.org/alpine/v3.20/community >>"$output/target_rootfs/etc/apk/repositories"
 	set +ex
 
@@ -64,6 +65,7 @@ bootstrap_alpine() {
 	# Install required package into rootfs
 	pkgs=$(echo $preinstalled_packages | xargs)
 	set -xe
+	cd $output
 	sudo -E proot $qemu_flag --rootfs=./target_rootfs \
 		-b /dev:/dev \
 		-b /sys:/sys \
@@ -75,6 +77,7 @@ bootstrap_alpine() {
 
 	echo "Generat ssh keys and copy into rootfs"
 	set -ex
+	cd $output
 	sudo -E proot $qemu_flag --rootfs=./target_rootfs \
 		-b /dev:/dev \
 		-b /sys:/sys \
@@ -88,6 +91,10 @@ bootstrap_alpine() {
 	sync
 }
 copy_layer() {
+	if [[ -z ${target_profile} ]];then
+		echo "Error: env target_profile empty"
+		exit 100
+	fi
 	echo "INFO: Copy $target_profile layers files"
 	export VM_CONSOLE_DEVICE=hvc0
 
@@ -96,6 +103,7 @@ copy_layer() {
 		echo 'Error: change dir to $workspace failed'
 		exit 100
 	}
+
 	cd ./layers/$target_profile && {
 		if [[ ${VM_PROVIDER} == "qemu" ]]; then
 			find ./ -type f -exec sed -i 's/VM_CONSOLE_DEVICE/ttyAMA0/g' {} + # Replace VM_CONSOLE_DEVICE to ttyAMA0
@@ -197,16 +205,31 @@ bootimage() {
 		exit 100
 	}
 
-	bootable_file=alpine_uefi_bootable.img
 	output=$output workspace=$workspace bash +x ./subfunc/boot_raw_disk.sh "$output/$bootable_file" arm64 || {
 		echo "Error: boot $output/$bootable_file failed"
 		exit 100
 	}
 }
 
+try_ssh_into_vm() {
+	while true; do
+		ssh -o ConnectTimeout=1 \
+			-o StrictHostKeyChecking=no \
+			-i "/tmp/ovm_ssh/ovm_id" root@127.0.0.1 -p 10025 "update-grub && sync && halt" && {
+			echo "Update-grub successful"
+			break
+		} || {
+			echo "Try ssh into vm again..."
+			sleep 2
+			continue
+		}
+	done
+
+}
+
 echo "=== Bootstrap Alpine ==="
 if [[ -z $workspace ]] && [[ -z $output ]]; then
-	echo 'Error: $workspace or $output empty'
+	echo 'Error: env workspace or output empty'
 	exit 100
 fi
 
@@ -221,14 +244,6 @@ clean_mapping
 # Final stage: boot raw disk and do update-grub
 bootimage >/tmp/vm_boot_log 2>&1 &
 tail -f /tmp/vm_boot_log &
-while true; do
-	ssh -o ConnectTimeout=1 -o StrictHostKeyChecking=no -i /tmp/ovm_ssh/ovm_id root@127.0.0.1 -p10025 "update-grub && sync && halt" && {
-		echo Update-grub successful
-		break
-	} || {
-		echo "Try ssh into vm again..."
-		sleep 2
-		continue
-	}
-done
+try_ssh_into_vm
 pack_rootfs
+exit 0
