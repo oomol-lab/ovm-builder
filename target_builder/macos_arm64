@@ -45,10 +45,10 @@ bootstrap_alpine() {
 	sudo -E rm -rf "$output/${bootable_file_zst}"
 	wget -c "$bootable_url" --output-document="$output/${bootable_file_zst}" --output-file=/tmp/log_download_alpine_uefi_bootable.img.txt
 
-	cd $output
+	cd "$output"
 	zstd -d -f "${bootable_file_zst}"
 	# Mapping the part into /dev/mapper/loopNpN
-	kpartx -av ${bootable_file}
+	kpartx -av "${bootable_file}"
 	mount -m -U $rootfs_part_uuid ./target_rootfs
 	mount -m -U $efi_part_uuid ./target_rootfs/boot/efi
 
@@ -59,13 +59,13 @@ bootstrap_alpine() {
 	if [[ $CROSS_BUILD == true ]]; then
 		qemu_flag="--qemu=$output/qemu_bins/static_qemu/bin/qemu-aarch64"
 	else
-		qemu_flag=''
+		qemu_flag=
 	fi
 
 	# Install required package into rootfs
 	pkgs=$(echo $preinstalled_packages | xargs)
 	set -xe
-	cd $output
+	cd "$output"
 	sudo -E proot $qemu_flag --rootfs=./target_rootfs \
 		-b /dev:/dev \
 		-b /sys:/sys \
@@ -77,7 +77,7 @@ bootstrap_alpine() {
 
 	echo "Generat ssh keys and copy into rootfs"
 	set -ex
-	cd $output
+	cd "$output"
 	sudo -E proot $qemu_flag --rootfs=./target_rootfs \
 		-b /dev:/dev \
 		-b /sys:/sys \
@@ -86,7 +86,7 @@ bootstrap_alpine() {
 		-w /root \
 		-0 /bin/su -c 'rm -rf /root/.ssh/ovm_id && ssh-keygen  -f /root/.ssh/ovm_id  -N "" && cat /root/.ssh/ovm_id.pub >> /root/.ssh/authorized_keys'
 	sudo -E rm -rf /tmp/ovm_ssh
-	sudo -E cp -rf $output/target_rootfs/root/.ssh /tmp/ovm_ssh
+	sudo -E cp -rf "$output/target_rootfs/root/.ssh" /tmp/ovm_ssh
 	set +xe
 	sync
 }
@@ -99,19 +99,19 @@ copy_layer() {
 	export VM_CONSOLE_DEVICE=hvc0
 
 	set -x
-	cd $workspace || {
+	cd "$workspace" || {
 		echo 'Error: change dir to $workspace failed'
 		exit 100
 	}
 
-	cd ./layers/$target_profile && {
+	cd "./layers/$target_profile" && {
 		if [[ ${VM_PROVIDER} == "qemu" ]]; then
 			find ./ -type f -exec sed -i 's/VM_CONSOLE_DEVICE/ttyAMA0/g' {} + # Replace VM_CONSOLE_DEVICE to ttyAMA0
 		else
 			find ./ -type f -exec sed -i 's/VM_CONSOLE_DEVICE/hvc0/g' {} + # Replace VM_CONSOLE_DEVICE to hvc0
 		fi
 		sudo -E cp -rf ./* "$output/target_rootfs" || {
-			echo "Copy layer into $output/$target_rootfs failed"
+			echo "Copy layer into $output/target_rootfs failed"
 			exit 100
 		}
 	} || {
@@ -119,7 +119,7 @@ copy_layer() {
 		exit 100
 	}
 
-	cd $output && {
+	cd "$output" && {
 		sudo -E proot $qemu_flag --rootfs=./target_rootfs \
 			-b /dev:/dev \
 			-b /sys:/sys \
@@ -136,7 +136,7 @@ copy_layer() {
 		}
 	}
 
-	cd $output && {
+	cd "$output" && {
 		sudo -E proot $qemu_flag --rootfs=./target_rootfs \
 			-b /dev:/dev \
 			-b /sys:/sys \
@@ -149,7 +149,7 @@ copy_layer() {
 		}
 	}
 
-	cd $output && {
+	cd "$output" && {
 		sudo -E proot $qemu_flag --rootfs=./target_rootfs \
 			-b /dev:/dev \
 			-b /sys:/sys \
@@ -163,7 +163,7 @@ copy_layer() {
 	}
 
 	set +x
-	cd $workspace || {
+	cd "$workspace" || {
 		echo "Error: failed to change dir to workspace"
 		exit 100
 	}
@@ -171,20 +171,20 @@ copy_layer() {
 }
 
 umount_rootfs() {
-	cd $output && {
+	cd "$output" && {
 		umount -R ./target_rootfs
 	} || {
 		echo "Error: failed to umount $output/target_rootfs"
 		exit 100
 	}
-	cd $workspace || {
+	cd "$workspace" || {
 		echo "Change dir to  workspace failed"
 		exit 100
 	}
 }
 
 pack_rootfs() {
-	cd $output && {
+	cd "$output" && {
 		zstd --force alpine_uefi_bootable.img && {
 			sha1sum alpine_uefi_bootable.img.zst >alpine_uefi_bootable.img.zst.sha1sum
 		} || {
@@ -199,25 +199,8 @@ pack_rootfs() {
 	}
 }
 
-
-try_ssh_into_vm() {
-	while true; do
-		ssh -o ConnectTimeout=1 \
-			-o StrictHostKeyChecking=no \
-			-i "/tmp/ovm_ssh/ovm_id" root@127.0.0.1 -p 10025 "update-grub && sync && halt" && {
-			echo "Update-grub successful"
-			break
-		} || {
-			echo "Try ssh into vm again..."
-			sleep 2
-			continue
-		}
-	done
-
-}
-
 echo "=== Bootstrap Alpine ==="
-if [[ -z $workspace ]] && [[ -z $output ]]; then
+if [[ -z "$workspace" ]] && [[ -z "$output" ]]; then
 	echo 'Error: env workspace or output empty'
 	exit 100
 fi
