@@ -1,22 +1,33 @@
 #!/usr/bin/bash
+# Get current work directory
+script="$(realpath "$0")"
+script_path="$(dirname "$script")"
+cd "${script_path}" || {
+	echo "initialize work dir failed"
+	exit 1
+}
+
+workspace="$script_path"
+
 check_distro() {
-	echo "== /etc/lsb-release =="
-	grep DISTRIB_ID=Ubuntu /etc/lsb-release && grep DISTRIB_RELEASE=24.04 /etc/lsb-release || {
+	lsb_file="/etc/lsb-release"
+	grep "DISTRIB_ID=Ubuntu" "$lsb_file" && grep "DISTRIB_RELEASE=24.04" "$lsb_file" || {
 		echo "Only support build on ubuntu 24.04"
 		exit 100
 	}
-	echo "======================"
 }
 
 parse_profile() {
-	echo "=== Parse $target_profile ==="
-
-	if [[ ! -f ./target_builder/$target_profile ]]; then
-		echo "Error: profile $target_profile not support! "
+	target_profile="$workspace/target_builder/$target_profile"
+	if [[ -f "$target_profile" ]]; then
+		echo "Target profile: $target_profile"
+	else
+		echo "Error: $target_profile not find! "
 		exit 100
 	fi
 
-	HOST_ARCH=$(uname -p)
+	# normalization the host arch field
+	HOST_ARCH="$(uname -p)"
 	if [[ "${HOST_ARCH}" == 'aarch64' ]]; then
 		HOST_ARCH=arm64
 	fi
@@ -26,7 +37,8 @@ parse_profile() {
 
 	echo "HOST_ARCH: $HOST_ARCH"
 
-	TARGET_ARCH=$(echo "${target_profile}" | cut -d '_' -f 2)
+	# normalization the target arch field
+	TARGET_ARCH="$(basename "${target_profile}" | cut -d '_' -f 2)"
 	if [[ "${TARGET_ARCH}" == 'aarch64' ]]; then
 		TARGET_ARCH=arm64
 	fi
@@ -34,66 +46,68 @@ parse_profile() {
 		TARGET_ARCH=amd64
 	fi
 
-	echo TARGET_ARCH: $TARGET_ARCH # only support arm64
+	echo TARGET_ARCH: "$TARGET_ARCH" # only support arm64
 
-	echo "Build ${TARGET_ARCH} on ${HOST_ARCH}"
-
-	if [[ $SKIP_BUILD_PROOT == "true" ]]; then
-		echo '$SKIP_BUILD_PROOT == true, skip build proot'
+	# Build Proot
+	if [[ "$SKIP_BUILD_PROOT" == "true" ]]; then
+		echo 'env SKIP_BUILD_PROOT == true, skip build proot'
 	else
-		bash +x ${workspace}/subfunc/build_proot.sh || {
+		workspace="$workspace" output="$output" bash "${workspace}/subfunc/build_proot.sh" || {
 			echo "Error: Build proot failed"
 			exit 100
 		}
 	fi
 
-	if [[ $SKIP_INSTALL_QEMU == "true" ]]; then
-		echo "SKIP_INSTALL_QEMU set true, skip install qemu"
+	# Install qemu
+	if [[ "$SKIP_INSTALL_QEMU" == "true" ]]; then
+		echo "env SKIP_INSTALL_QEMU set true, skip install qemu"
 	else
-		output=$output workspace=$workspace bash +x ${workspace}/subfunc/install_qemu.sh || {
+		output="$output" workspace="$workspace" bash +x "${workspace}/subfunc/install_qemu.sh" || {
 			echo "Error: Install qemu failed"
 			exit 100
 		}
 	fi
 
 	if [[ "${HOST_ARCH}" == "${TARGET_ARCH}" ]]; then
-		export NATIVE_BUILD=true
-		echo "current we do native build..."
+		export BUILD_TYPE=native
+		echo "current we do native build"
 	else
-		export CROSS_BUILD=true
-		echo "current we do cross build, building proot...."
+		export BUILD_TYPE=cross
+		echo "current we do cross build"
 	fi
 
-	bash +x $workspace/target_builder/$target_profile || {
-		echo "Error: run $workspace/target_builder/$target_profile failed"
+	workspace="$workspace" output="$output" target_profile="$target_profile" bash "$target_profile" || {
+		echo "Error: run $target_profile failed"
 		exit 100
 	}
 }
 
 usage() {
-	cat ./docs/help
+	help_file="docs/help"
+	cat "$help_file"
 }
 
 main() {
-	cd "$(dirname $0)"
-	if [[ $1 == help ]] || [[ $# -ne 1 ]]; then
-		usage
-		exit 100
-	fi
-
-	export workspace="$(pwd)"
-	export output=${workspace}/output
-
-	echo "- workspace: $workspace"
-	echo "- output   : ${output}"
-	mkdir -p ${output}
-
-	if [[ $# -eq 1 ]]; then
-		target_profile=$1
-		export target_profile
-	fi
+	SKIP_BUILD_PROOT="${SKIP_BUILD_PROOT:-false}"
+	SKIP_APT_GET_INSTALL="${SKIP_APT_GET_INSTALL:-false}"
+	VM_PROVIDER="${VM_PROVIDER:-applehv}"
+	export SKIP_BUILD_PROOT
+	export SKIP_APT_GET_INSTALL
+	export VM_PROVIDER
 
 	check_distro
+
+	if [[ "$1" == help ]] || [[ "$#" -ne 1 ]]; then
+		usage
+		exit 0
+	fi
+
+	output="${workspace}/output"
+	mkdir -p "${output}"
+	echo "==> workspace: $workspace"
+	echo "==> output   : ${output}"
+
+	target_profile="$1"
 	parse_profile
 }
 

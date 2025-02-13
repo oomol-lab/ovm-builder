@@ -1,11 +1,11 @@
 #! /usr/bin/env bash
-if [[ $SKIP_APT_GET_INSTALL == "true" ]]; then
-	echo '$SKIP_APT_GET_INSTALL == true, skip install required package'
-else
-	sudo -E apt update && sudo -E apt -y install wget kpartx zstd || {
-		echo "Error: Install wget failed"
-		exit 100
-	}
+set -e
+set -u
+set -o pipefail
+# if running in ci, print more message in console
+if [[ -n "$CI_ENV" ]]; then
+	echo "Running in debug mode"
+	set -x
 fi
 
 # one package one line
@@ -20,194 +20,133 @@ preinstalled_packages="
 	tar
 	zstd
 	tzdata
+	socat
 	"
-bootable_url="https://github.com/oomol/builded/releases/download/v1.1/alpine_uefi_bootable.img.zst"
-# the alpine_uefi_bootable.img.zst has ROOTFS and EFI partition
+
+echo "workspace: ${workspace:?}"
+echo "output: ${output:?}"
+
+bootable_url="https://github.com/oomol/builded/releases/download/v1.1/alpine_uefi_bootable-arm64.img.zst"
+bootable_img_zst="$output/$(basename "$bootable_url")"
+bootable_img="${bootable_img_zst%.*}"
+profile_name="$(basename "${target_profile:?}")"
+proot_args=()
+rootfs_dir="$output/rootfs_arm64"
+if [[ $BUILD_TYPE == cross ]]; then
+	proot_args+="--qemu=$output/qemu_bins/static_qemu/bin/qemu-aarch64"
+fi
+proot_args+=("-r" "$rootfs_dir")
+proot_args+=("-b" "/dev:/dev")
+proot_args+=("-b" "/sys:/sys")
+proot_args+=("-b" "/proc:/proc")
+proot_args+=("-b" "/etc/resolv.conf:/etc/resolv.conf")
+proot_args+=("-w" "/root")
+
+# alpine_uefi_bootable.img.zst has ROOTFS and EFI partition
 rootfs_part_uuid="d1e46927-eb5d-4fbf-986a-7e5581f37a16"
 efi_part_uuid="6729-82AB"
-bootable_file_zst="alpine_uefi_bootable.img.zst"
-
-clean_mapping() {
-	umount -R $output/target_rootfs >/dev/null 2>&1
-	# Clean kpartx mapping devices
-	sudo -E losetup -a | grep alpine_uefi_bootable.img | cut -d ':' -f1 | while read -r item; do sudo -E kpartx -dv $item; done && {
-		sudo -E losetup -D
-	} || {
-		echo "Clean kpartx mapping failed"
-		exit 100
-	}
-}
 
 bootstrap_alpine() {
-	bootable_file="${bootable_file_zst%.*}"
+	echo "bootstrap alpine"
+	cd "$workspace"
+	sudo rm -rf "$bootable_img_zst" "$bootable_img"
 
-	set -ex
-	sudo -E rm -rf "$output/${bootable_file_zst}"
-	wget -c "$bootable_url" --output-document="$output/${bootable_file_zst}" --output-file=/tmp/log_download_alpine_uefi_bootable.img.txt
+	mkdir -p "$output"
+	wget -c "$bootable_url" --output-document="${bootable_img_zst}" --output-file="$output/wget_alpine_image.log"
 
 	cd "$output"
-	zstd -d -f "${bootable_file_zst}"
+	zstd -d -f "${bootable_img_zst}"
 	# Mapping the part into /dev/mapper/loopNpN
-	kpartx -av "${bootable_file}"
-	mount -m -U $rootfs_part_uuid ./target_rootfs
-	mount -m -U $efi_part_uuid ./target_rootfs/boot/efi
+	kpartx -av "$bootable_img"
+	mount -m -U $rootfs_part_uuid "$rootfs_dir"
+	mount -m -U $efi_part_uuid "$rootfs_dir/boot/efi"
 
-	echo http://dl-cdn.alpinelinux.org/alpine/v3.20/community >>"$output/target_rootfs/etc/apk/repositories"
-	set +ex
-
-	# set qemu_flag if CROSS_BUILD
-	if [[ $CROSS_BUILD == true ]]; then
-		qemu_flag="--qemu=$output/qemu_bins/static_qemu/bin/qemu-aarch64"
-	else
-		qemu_flag=
-	fi
+	# add community repo into alpine repositories
+	echo http://dl-cdn.alpinelinux.org/alpine/v3.20/community | tee -a "$rootfs_dir/etc/apk/repositories"
 
 	# Install required package into rootfs
-	pkgs=$(echo $preinstalled_packages | xargs)
-	set -xe
-	cd "$output"
-	sudo -E proot $qemu_flag --rootfs=./target_rootfs \
-		-b /dev:/dev \
-		-b /sys:/sys \
-		-b /proc:/proc \
-		-b /etc/resolv.conf:/etc/resolv.conf \
-		-w /root \
-		-0 /bin/su -c "apk update;apk add $pkgs"
-	set +xe
 
-	echo "Generat ssh keys and copy into rootfs"
-	set -ex
-	cd "$output"
-	sudo -E proot $qemu_flag --rootfs=./target_rootfs \
-		-b /dev:/dev \
-		-b /sys:/sys \
-		-b /proc:/proc \
-		-b /etc/resolv.conf:/etc/resolv.conf \
-		-w /root \
-		-0 /bin/su -c 'rm -rf /root/.ssh/ovm_id && ssh-keygen  -f /root/.ssh/ovm_id  -N "" && cat /root/.ssh/ovm_id.pub >> /root/.ssh/authorized_keys'
-	sudo -E rm -rf /tmp/ovm_ssh
-	sudo -E cp -rf "$output/target_rootfs/root/.ssh" /tmp/ovm_ssh
-	set +xe
+	echo "install pkgs into rootfs"
+	pkgs=$(echo "$preinstalled_packages" | xargs)
+	sudo -E proot "${proot_args[@]}" -0 /bin/su -c "apk update && apk add $pkgs"
+
+	echo "generat ssh keys and copy into rootfs"
+	sudo -E proot "${proot_args[@]}" -0 /bin/su -c 'rm -rf /root/.ssh/ovm_id && \
+		ssh-keygen -f /root/.ssh/ovm_id -N "" && \
+		cat /root/.ssh/ovm_id.pub >> /root/.ssh/authorized_keys'
+
+	#tar -Jcvf "$output/macos_arm64_ssh.tar.xz" "$rootfs_dir/root/.ssh"
 	sync
 }
-copy_layer() {
-	if [[ -z ${target_profile} ]];then
-		echo "Error: env target_profile empty"
-		exit 100
+
+install_target_profile_deps() {
+	echo "install build deps"
+	if [[ $SKIP_APT_GET_INSTALL == "true" ]]; then
+		echo 'env SKIP_APT_GET_INSTALL == true, skip install required package'
+	else
+		sudo -E apt update
+		sudo -E apt -y install wget kpartx zstd
 	fi
-	echo "INFO: Copy $target_profile layers files"
-	export VM_CONSOLE_DEVICE=hvc0
+}
 
-	set -x
-	cd "$workspace" || {
-		echo 'Error: change dir to $workspace failed'
-		exit 100
-	}
-
-	cd "./layers/$target_profile" && {
-		if [[ ${VM_PROVIDER} == "qemu" ]]; then
-			find ./ -type f -exec sed -i 's/VM_CONSOLE_DEVICE/ttyAMA0/g' {} + # Replace VM_CONSOLE_DEVICE to ttyAMA0
-		else
-			find ./ -type f -exec sed -i 's/VM_CONSOLE_DEVICE/hvc0/g' {} + # Replace VM_CONSOLE_DEVICE to hvc0
-		fi
-		sudo -E cp -rf ./* "$output/target_rootfs" || {
-			echo "Copy layer into $output/target_rootfs failed"
-			exit 100
-		}
+clean_mapping() {
+	echo "clean disk mapping"
+	findmnt "$rootfs_dir" && {
+		umount -R "$rootfs_dir"
 	} || {
-		echo 'Error: change dir to ./layers/$target_profile failed'
-		exit 100
+		echo "$rootfs_dir not mount, no need to unmount"
 	}
+}
 
-	cd "$output" && {
-		sudo -E proot $qemu_flag --rootfs=./target_rootfs \
-			-b /dev:/dev \
-			-b /sys:/sys \
-			-b /proc:/proc \
-			-b /etc/resolv.conf:/etc/resolv.conf \
-			-w /root \
-			-0 /bin/su -c "chmod +x /etc/init.d/ovmservice && 
-			rc-update add ovmservice default &&
+copy_layer() {
+	cd "$workspace"
+	layer_dir="$workspace/layers/$profile_name"
+
+	echo "copy $layer_dir layers files"
+	# In MacOS the console device is hvc0
+	# In Qemu the console device is ttyAMA0
+	if [[ $VM_PROVIDER == "qemu" ]]; then
+		find ./ -type f -exec sed -i 's/VM_CONSOLE_DEVICE/ttyAMA0/g' {} + # Replace VM_CONSOLE_DEVICE to ttyAMA0
+	else
+		find ./ -type f -exec sed -i 's/VM_CONSOLE_DEVICE/hvc0/g' {} + # Replace VM_CONSOLE_DEVICE to hvc0
+	fi
+
+	echo "copy $layer_dir layers files"
+	sudo cp -rf "$layer_dir/"* "$rootfs_dir"
+
+	sudo -E proot "${proot_args[@]}" \
+		-0 /bin/su -c "rc-update add ovmservice default &&
 			rc-update del networking boot && 
 			rc-update add networking default &&
-		       	rc-update add podman default" || {
-			echo "Error: add ovmservice into default stage failed"
-			exit 100
-		}
-	}
+		       	rc-update add podman default"
 
-	cd "$output" && {
-		sudo -E proot $qemu_flag --rootfs=./target_rootfs \
-			-b /dev:/dev \
-			-b /sys:/sys \
-			-b /proc:/proc \
-			-b /etc/resolv.conf:/etc/resolv.conf \
-			-w /root \
-			-0 /bin/su -c "echo rc_parallel=YES >> /etc/rc.conf" || {
-			echo "Error: enable rc_parallel failed"
-			exit 100
-		}
-	}
+	sudo -E proot "${proot_args[@]}" \
+		-0 /bin/su -c "echo rc_parallel=YES >> /etc/rc.conf"
 
-	cd "$output" && {
-		sudo -E proot $qemu_flag --rootfs=./target_rootfs \
-			-b /dev:/dev \
-			-b /sys:/sys \
-			-b /proc:/proc \
-			-b /etc/resolv.conf:/etc/resolv.conf \
-			-w /root \
-			-0 /bin/su -c "touch /.first_boot" || {
-			echo "Error: enable rc_parallel failed"
-			exit 100
-		}
-	}
+	sudo -E proot "${proot_args[@]}" \
+		-0 /bin/su -c "touch /.first_boot"
 
-	set +x
-	cd "$workspace" || {
-		echo "Error: failed to change dir to workspace"
-		exit 100
-	}
 	sync # must do sync !
 }
 
 umount_rootfs() {
-	cd "$output" && {
-		umount -R ./target_rootfs
-	} || {
-		echo "Error: failed to umount $output/target_rootfs"
-		exit 100
-	}
-	cd "$workspace" || {
-		echo "Change dir to  workspace failed"
-		exit 100
-	}
+	echo "umount rootfs"
+	umount -R "$rootfs_dir"
 }
 
 pack_rootfs() {
-	cd "$output" && {
-		zstd --force alpine_uefi_bootable.img && {
-			sha1sum alpine_uefi_bootable.img.zst >alpine_uefi_bootable.img.zst.sha1sum
-		} || {
-			echo "Error: Compress alpine_uefi_bootable.img failed"
-			exit 100
-		}
-	}
-
-	cd "$workspace" || {
-		echo "Change dir to  workspace failed"
-		exit 100
-	}
+	echo "pack rootfs"
+	cd "$output"
+	zstd --force "$bootable_img"
+	sha256sum "$bootable_img_zst" | tee "$bootable_img_zst.sha256sum"
+	cd "$workspace"
 }
 
-echo "=== Bootstrap Alpine ==="
-if [[ -z "$workspace" ]] && [[ -z "$output" ]]; then
-	echo 'Error: env workspace or output empty'
-	exit 100
-fi
+echo "=== $profile_name ==="
 
-echo "workspace: $workspace"
-echo "output: $output"
 clean_mapping
+install_target_profile_deps
+
 bootstrap_alpine
 copy_layer
 umount_rootfs
@@ -215,4 +154,3 @@ clean_mapping
 
 # Final stage: boot raw disk and do update-grub
 pack_rootfs
-exit 0

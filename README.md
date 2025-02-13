@@ -1,6 +1,8 @@
+[![Build Intel MacOS Profile](https://github.com/ihexon/ovm-builder/actions/workflows/build_macos-x86_64.yaml/badge.svg)](https://github.com/ihexon/ovm-builder/actions/workflows/build_macos-x86_64.yaml) [![Build ARM64 MacOS Profile](https://github.com/ihexon/ovm-builder/actions/workflows/build_macos.yaml/badge.svg)](https://github.com/ihexon/ovm-builder/actions/workflows/build_macos.yaml) [![Build WSL2 Profile](https://github.com/ihexon/ovm-builder/actions/workflows/build_wsl2.yaml/badge.svg)](https://github.com/ihexon/ovm-builder/actions/workflows/build_wsl2.yaml)
 # `make` commands
   - `macos_arm64` : make ovm bootable image for macos arm64
   - `wsl2_amd64`  : make ovm wsl2 rootfs distribute
+NOTE: Only one profile can be built at a time
 
 
 

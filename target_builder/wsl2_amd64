@@ -1,7 +1,7 @@
 #! /usr/bin/env bash
 # FOR DEV
 if [[ $SKIP_APT_GET_INSTALL == "true" ]]; then
-	echo '$SKIP_APT_GET_INSTALL == true, skip install required package'
+	echo 'env SKIP_APT_GET_INSTALL == true, skip install required package'
 else
 	sudo -E apt update
 	sudo -E apt -y install wget
@@ -27,12 +27,12 @@ checksum="9bbb7008afafb1579ed8f10ee3bdbddccc4275e9  alpine_rootfs.tar.gz"
 
 
 pack_rootfs() {
-	if [[ -z $output ]]; then
+	if [[ -z "$output" ]]; then
 		echo "Env output empty"
 		exit 100
 	fi
 
-	if [[ -z $target_profile ]]; then
+	if [[ -z "$target_profile" ]]; then
 		echo "Env target_profile empty"
 		exit 100
 	fi
@@ -49,10 +49,10 @@ pack_rootfs() {
 
 bootstrap_alpine() {
 	wget "$rootfs_url" --output-document="$output/alpine_rootfs.tar.gz"
-	echo "$checksum" >$output/alpine_rootfs.tar.gz.sha1sum
+	echo "$checksum" >"$output/alpine_rootfs.tar.gz.sha1sum"
 
 	# ==== CURRENT DIR in $workspace/output ====
-	cd $output && sha1sum -c alpine_rootfs.tar.gz.sha1sum || {
+	cd "$output" && sha1sum -c alpine_rootfs.tar.gz.sha1sum || {
 		echo "Error: checksha1sum failed"
 		exit 100
 	}
@@ -62,7 +62,7 @@ bootstrap_alpine() {
 		exit 100
 	}
 
-	pkgs=$(echo $preinstalled_packages | xargs)
+	pkgs=$(echo "$preinstalled_packages" | xargs)
 	if [[ $NATIVE_BUILD == true ]]; then
 		sudo -E proot --rootfs=./target_rootfs \
 			-b /dev:/dev \
@@ -70,7 +70,7 @@ bootstrap_alpine() {
 			-b /proc:/proc \
 			-b /etc/resolv.conf:/etc/resolv.conf \
 			-w /root \
-			-0 /bin/su -c "apk update;apk add $pkgs;mkdir -p /etc/runlevels/stop_all"
+			-0 /bin/su -c "apk update;apk add $pkgs && mkdir -p /etc/runlevels/stop_all"
 	else
 		sudo -E proot --qemu=qemu-x86_64-static --rootfs=./target_rootfs \
 			-b /dev:/dev \
@@ -78,13 +78,13 @@ bootstrap_alpine() {
 			-b /proc:/proc \
 			-b /etc/resolv.conf:/etc/resolv.conf \
 			-w /root \
-			-0 /bin/su -c "apk update;apk add $pkgs;mkdir -p /etc/runlevels/stop_all"
+			-0 /bin/su -c "apk update;apk add $pkgs && mkdir -p /etc/runlevels/stop_all"
 	fi
 }
 
 copy_layer() {
 	set -x
-	cp -rf $workspace/layers/$target_profile/* $output/target_rootfs || {
+	cp -rf "$workspace/layers/$target_profile/"* "$output/target_rootfs" || {
 		echo "Copy $workspace/layers/$target_profile/* into $output/target_rootfs/ failed"
 		exit 100
 	}
@@ -97,8 +97,8 @@ if [[ -z $workspace ]] && [[ -z $output ]]; then
 	exit 100
 fi
 
-echo "workspace: $workspace"
-echo "output: $output"
+echo "workspace: ${workspace:?}"
+echo "output: ${output:?}"
 bootstrap_alpine
 copy_layer
 pack_rootfs

@@ -16,6 +16,8 @@ on:
       - '*.md'
       - '*.txt'
       - '*.yaml'
+env:
+  CI_ENV: IN_CI
 
 jobs:
   build:
