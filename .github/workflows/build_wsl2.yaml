@@ -8,6 +8,8 @@ on:
     branches:
       - 'main'
       - 'dev'
+env:
+  CI_ENV: IN_CI
 
 jobs:
   build:

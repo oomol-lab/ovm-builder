@@ -1,12 +1,21 @@
 #! /usr/bin/env bash
-# FOR DEV
-if [[ $SKIP_APT_GET_INSTALL == "true" ]]; then
-	echo 'env SKIP_APT_GET_INSTALL == true, skip install required package'
-else
-	sudo -E apt update
-	sudo -E apt -y install wget
-
+set -e
+set -u
+set -o pipefail
+# if running in ci, print more message in console
+if [[ -n "$CI_ENV" ]]; then
+	echo "Running in debug mode"
+	set -x
 fi
+install_target_profile_deps() {
+	echo "install build deps"
+	if [[ $SKIP_APT_GET_INSTALL == "true" ]]; then
+		echo 'env SKIP_APT_GET_INSTALL == true, skip install required package'
+	else
+		sudo -E apt update
+		sudo -E apt -y install wget kpartx zstd tar
+	fi
+}
 
 preinstalled_packages="
 	bash
@@ -22,83 +31,56 @@ preinstalled_packages="
  	zstd
   	tar
 	"
-rootfs_url="https://dl-cdn.alpinelinux.org/alpine/v3.20/releases/x86_64/alpine-minirootfs-3.20.2-x86_64.tar.gz"
-checksum="9bbb7008afafb1579ed8f10ee3bdbddccc4275e9  alpine_rootfs.tar.gz"
+echo "workspace: ${workspace:?}"
+echo "output: ${output:?}"
 
+rootfs_url="https://dl-cdn.alpinelinux.org/alpine/v3.20/releases/x86_64/alpine-minirootfs-3.20.2-x86_64.tar.gz"
+rootfs_file="$output/$(basename "$rootfs_url")"
+rootfs_dir="$output/rootfs_amd64"
+profile_name="$(basename "${target_profile:?}")"
+# artifactory_file is the rootfs-amd64.zst used to import into wsl2
+artifactory_file="$output/rootfs-amd64" # without zstd
+if [[ $BUILD_TYPE == cross ]]; then
+	proot_args+="--qemu=$output/qemu_bins/static_qemu/bin/qemu-aarch64"
+fi
+proot_args+=("-r" "$rootfs_dir")
+proot_args+=("-b" "/dev:/dev")
+proot_args+=("-b" "/sys:/sys")
+proot_args+=("-b" "/proc:/proc")
+proot_args+=("-b" "/etc/resolv.conf:/etc/resolv.conf")
+proot_args+=("-w" "/root")
 
 pack_rootfs() {
-	if [[ -z "$output" ]]; then
-		echo "Env output empty"
-		exit 100
-	fi
-
-	if [[ -z "$target_profile" ]]; then
-		echo "Env target_profile empty"
-		exit 100
-	fi
-
-	echo "=== Pack rootfs ==="
-	set -ex
-	sudo apt install -y zstd
-	cd "$output/target_rootfs"
-	tar -cvf "$output/$target_profile.tar" ./* >/dev/null
+	echo "pack rootfs"
+	cd "$rootfs_dir"
+	tar -cvf "$artifactory_file" . >/dev/null
 	cd "$output"
-	zstd --force -16 "$target_profile.tar"
-	set +ex
+	zstd --force -16 "$artifactory_file"
+	sha256sum "$artifactory_file" | tee "$artifactory_file.sha256sum"
 }
 
 bootstrap_alpine() {
-	wget "$rootfs_url" --output-document="$output/alpine_rootfs.tar.gz"
-	echo "$checksum" >"$output/alpine_rootfs.tar.gz.sha1sum"
+	wget "$rootfs_url" --output-document="$rootfs_file" --output-file="$output/wget_alpine_rootfs.log"
+	sudo rm -rf "$rootfs_dir"
 
-	# ==== CURRENT DIR in $workspace/output ====
-	cd "$output" && sha1sum -c alpine_rootfs.tar.gz.sha1sum || {
-		echo "Error: checksha1sum failed"
-		exit 100
-	}
-	sudo rm -rf ./target_rootfs
-	mkdir -p ./target_rootfs && sudo -E tar -xvf alpine_rootfs.tar.gz -C ./target_rootfs || {
-		echo "Error: extract alpine_rootfs.tar.gz failed"
-		exit 100
-	}
+	echo "unpack rootfs"
+	sudo mkdir -p "$rootfs_dir"
+	tar -xvf "$rootfs_file" -C "$rootfs_dir"
 
+	echo "install pkgs into rootfs"
 	pkgs=$(echo "$preinstalled_packages" | xargs)
-	if [[ $NATIVE_BUILD == true ]]; then
-		sudo -E proot --rootfs=./target_rootfs \
-			-b /dev:/dev \
-			-b /sys:/sys \
-			-b /proc:/proc \
-			-b /etc/resolv.conf:/etc/resolv.conf \
-			-w /root \
-			-0 /bin/su -c "apk update;apk add $pkgs && mkdir -p /etc/runlevels/stop_all"
-	else
-		sudo -E proot --qemu=qemu-x86_64-static --rootfs=./target_rootfs \
-			-b /dev:/dev \
-			-b /sys:/sys \
-			-b /proc:/proc \
-			-b /etc/resolv.conf:/etc/resolv.conf \
-			-w /root \
-			-0 /bin/su -c "apk update;apk add $pkgs && mkdir -p /etc/runlevels/stop_all"
-	fi
+	sudo -E proot "${proot_args[@]}" -0 /bin/su -c "apk update && apk add $pkgs"
 }
 
 copy_layer() {
-	set -x
-	cp -rf "$workspace/layers/$target_profile/"* "$output/target_rootfs" || {
-		echo "Copy $workspace/layers/$target_profile/* into $output/target_rootfs/ failed"
-		exit 100
-	}
-	set +x
+	layer_dir="$workspace/layers/$profile_name"
+	echo "copy $layer_dir layers files"
+	sudo cp -rf "$layer_dir/"* "$rootfs_dir"
+	sync
 }
 
-echo "=== Bootstrap Alpine ==="
-if [[ -z $workspace ]] && [[ -z $output ]]; then
-	echo 'Error: env workspace or output empty'
-	exit 100
-fi
+echo "=== $profile_name ==="
 
-echo "workspace: ${workspace:?}"
-echo "output: ${output:?}"
 bootstrap_alpine
 copy_layer
 pack_rootfs
