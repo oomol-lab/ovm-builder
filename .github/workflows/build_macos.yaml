@@ -17,6 +17,9 @@ on:
       - '*.txt'
       - '*.yaml'
 
+env:
+  CI_ENV: IN_CI
+
 jobs:
   build:
     runs-on: ubuntu-24.04
