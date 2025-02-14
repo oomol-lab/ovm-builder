@@ -1,13 +1,14 @@
 name: Build Intel MacOS Profile
 on:
   push:
+    tags:
+      - 'v*'
     branches:
       - 'main'
       - 'dev'
     paths-ignore:
       - '*.md'
       - '*.txt'
-      - '*.yaml'
   pull_request:
     branches:
       - 'main'
@@ -15,7 +16,7 @@ on:
     paths-ignore:
       - '*.md'
       - '*.txt'
-      - '*.yaml'
+
 env:
   CI_ENV: IN_CI
 
@@ -40,3 +41,15 @@ jobs:
             output/bootable-amd64.img.zst.sha256sum
           if-no-files-found: error
           overwrite: true
+      - name: Release
+        uses: softprops/action-gh-release@v2
+        if: startsWith(github.ref, 'refs/tags/')
+        with:
+          body_path: output/bootable-amd64.img.zst.sha256sum
+          files: |
+              output/bootable-amd64.img.zst
+              output/bootable-amd64.img.zst.sha256sum
+          append_body: true
+          draft: false
+          prerelease: false
+          make_latest: true

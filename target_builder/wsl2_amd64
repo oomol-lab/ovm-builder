@@ -41,8 +41,9 @@ profile_name="$(basename "${target_profile:?}")"
 # artifactory_file is the rootfs-amd64.zst used to import into wsl2
 artifactory_file="$output/rootfs-amd64" # without zstd
 artifactory_zstd="$artifactory_file.zst"
+proot_args=()
 if [[ $BUILD_TYPE == cross ]]; then
-	proot_args+="--qemu=$output/qemu_bins/static_qemu/bin/qemu-aarch64"
+	proot_args+=("--qemu=$output/qemu_bins/static_qemu/bin/qemu-aarch64")
 fi
 proot_args+=("-r" "$rootfs_dir")
 proot_args+=("-b" "/dev:/dev")
