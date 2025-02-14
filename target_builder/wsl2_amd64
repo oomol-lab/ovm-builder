@@ -40,6 +40,7 @@ rootfs_dir="$output/rootfs_amd64"
 profile_name="$(basename "${target_profile:?}")"
 # artifactory_file is the rootfs-amd64.zst used to import into wsl2
 artifactory_file="$output/rootfs-amd64" # without zstd
+artifactory_zstd="$artifactory_file.zst"
 if [[ $BUILD_TYPE == cross ]]; then
 	proot_args+="--qemu=$output/qemu_bins/static_qemu/bin/qemu-aarch64"
 fi
@@ -55,8 +56,8 @@ pack_rootfs() {
 	cd "$rootfs_dir"
 	tar -cvf "$artifactory_file" . >/dev/null
 	cd "$output"
-	zstd --force -16 "$artifactory_file"
-	sha256sum "$artifactory_file" | tee "$artifactory_file.sha256sum"
+	zstd --stdout --force -16 "$artifactory_file"  > "$artifactory_zstd"
+	sha256sum "$artifactory_zstd" | tee "$artifactory_zstd.sha256sum"
 }
 
 bootstrap_alpine() {
@@ -65,7 +66,7 @@ bootstrap_alpine() {
 
 	echo "unpack rootfs"
 	sudo mkdir -p "$rootfs_dir"
-	tar -xvf "$rootfs_file" -C "$rootfs_dir"
+	tar -xvf "$rootfs_file" -C "$rootfs_dir" >/dev/null
 
 	echo "install pkgs into rootfs"
 	pkgs=$(echo "$preinstalled_packages" | xargs)

@@ -27,4 +27,16 @@ jobs:
         uses: 'actions/checkout@v4'
 
       - name: Build
-        run:  sudo -E ./make macos_amd64
+        run: |
+          sudo -E ./make macos_amd64
+          sudo mv output/alpine_uefi_bootable-x86_64.img.zst           output/bootable-amd64.img.zst
+          sudo mv output/alpine_uefi_bootable-x86_64.img.zst.sha256sum output/bootable-amd64.img.zst.sha256sum
+      - name: Upload artifact
+        uses: actions/upload-artifact@v4
+        with:
+          name: bootable-amd64.img.zst
+          path: |
+            output/bootable-amd64.img.zst
+            output/bootable-amd64.img.zst.sha256sum
+          if-no-files-found: error
+          overwrite: true
