@@ -43,7 +43,7 @@ jobs:
         uses: softprops/action-gh-release@v2
         if: startsWith(github.ref, 'refs/tags/')
         with:
-          body_path: output/rootfs-amd64.zst.sha256sum
+          generate_release_notes: true
           files: |
               output/rootfs-amd64.zst
               output/rootfs-amd64.zst.sha256sum

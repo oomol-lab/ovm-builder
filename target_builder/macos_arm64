@@ -137,7 +137,7 @@ umount_rootfs() {
 pack_rootfs() {
 	echo "pack rootfs"
 	cd "$output"
-	zstd --force "$bootable_img"
+	zstd --stdout --force "$bootable_img" > "$bootable_img_zst"
 	sha256sum "$bootable_img_zst" | tee "$bootable_img_zst.sha256sum"
 	cd "$workspace"
 }
