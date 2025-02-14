@@ -1,13 +1,22 @@
 name: Build WSL2 Profile
 on:
   push:
+    tags:
+      - 'v*'
     branches:
       - 'main'
       - 'dev'
+    paths-ignore:
+      - '*.md'
+      - '*.txt'
   pull_request:
     branches:
       - 'main'
       - 'dev'
+    paths-ignore:
+      - '*.md'
+      - '*.txt'
+
 env:
   CI_ENV: IN_CI
 
@@ -30,3 +39,15 @@ jobs:
             output/rootfs-amd64.zst.sha256sum
           if-no-files-found: error
           overwrite: true
+      - name: Release
+        uses: softprops/action-gh-release@v2
+        if: startsWith(github.ref, 'refs/tags/')
+        with:
+          body_path: output/rootfs-amd64.zst.sha256sum
+          files: |
+              output/rootfs-amd64.zst
+              output/rootfs-amd64.zst.sha256sum
+          append_body: true
+          draft: false
+          prerelease: false
+          make_latest: true

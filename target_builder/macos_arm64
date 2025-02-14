@@ -33,7 +33,7 @@ profile_name="$(basename "${target_profile:?}")"
 proot_args=()
 rootfs_dir="$output/rootfs_arm64"
 if [[ $BUILD_TYPE == cross ]]; then
-	proot_args+="--qemu=$output/qemu_bins/static_qemu/bin/qemu-aarch64"
+	proot_args+=("--qemu=$output/qemu_bins/static_qemu/bin/qemu-aarch64")
 fi
 proot_args+=("-r" "$rootfs_dir")
 proot_args+=("-b" "/dev:/dev")
