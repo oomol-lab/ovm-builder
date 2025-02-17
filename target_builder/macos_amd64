@@ -29,12 +29,15 @@ echo "output: ${output:?}"
 bootable_url="https://github.com/oomol/builded/releases/download/v1.5/alpine_uefi_bootable-x86_64.img.zst"
 bootable_img_zst="$output/$(basename "$bootable_url")"
 bootable_img="${bootable_img_zst%.*}"
+sudo rm -rf "$bootable_img_zst" "$bootable_img"
+
 profile_name="$(basename "${target_profile:?}")"
 proot_args=()
-rootfs_dir="$output/rootfs_amd64"
+rootfs_dir="$output/rootfs"
 if [[ $BUILD_TYPE == cross ]]; then
 	proot_args+=("--qemu=$output/qemu_bins/static_qemu/bin/qemu-x86_64")
 fi
+
 proot_args+=("-r" "$rootfs_dir")
 proot_args+=("-b" "/dev:/dev")
 proot_args+=("-b" "/sys:/sys")
@@ -46,10 +49,21 @@ proot_args+=("-w" "/root")
 rootfs_part_uuid="4f1bfa20-73e8-4885-ab4b-1f9e67332f79"
 efi_part_uuid="F41A-23A6"
 
+run_cmd_in_rootfs() {
+	echo "Run cmd $*"
+	sudo -E proot "${proot_args[@]}" \
+		-0 /bin/su -c "$*"
+}
+
+mount_image() {
+	kpartx -av "$bootable_img"
+	mount -m -U "$rootfs_part_uuid" "$rootfs_dir"
+	mount -m -U "$efi_part_uuid" "$rootfs_dir/boot/efi"
+}
+
 bootstrap_alpine() {
 	echo "bootstrap alpine"
 	cd "$workspace"
-	sudo rm -rf "$bootable_img_zst" "$bootable_img"
 
 	mkdir -p "$output"
 	wget -c "$bootable_url" --output-document="${bootable_img_zst}" --output-file="$output/wget_alpine_image.log"
@@ -57,12 +71,13 @@ bootstrap_alpine() {
 	cd "$output"
 	zstd -d -f "${bootable_img_zst}"
 	# Mapping the part into /dev/mapper/loopNpN
-	kpartx -av "$bootable_img"
-	mount -m -U $rootfs_part_uuid "$rootfs_dir"
-	mount -m -U $efi_part_uuid "$rootfs_dir/boot/efi"
+	mount_image
 
 	# add community repo into alpine repositories
 	echo http://dl-cdn.alpinelinux.org/alpine/v3.20/community | tee -a "$rootfs_dir/etc/apk/repositories"
+
+	# change to mirror
+	sed -i 's#https\?://dl-cdn.alpinelinux.org/alpine#https://mirrors.tuna.tsinghua.edu.cn/alpine#g' "$rootfs_dir/etc/apk/repositories"
 
 	# Install required package into rootfs
 
@@ -74,8 +89,6 @@ bootstrap_alpine() {
 	sudo -E proot "${proot_args[@]}" -0 /bin/su -c 'rm -rf /root/.ssh/ovm_id && \
 		ssh-keygen -f /root/.ssh/ovm_id -N "" && \
 		cat /root/.ssh/ovm_id.pub >> /root/.ssh/authorized_keys'
-
-	#tar -Jcvf "$output/macos_arm64_ssh.tar.xz" "$rootfs_dir/root/.ssh"
 	sync
 }
 
@@ -89,15 +102,6 @@ install_target_profile_deps() {
 	fi
 }
 
-clean_mapping() {
-	echo "clean disk mapping"
-	findmnt "$rootfs_dir" && {
-		umount -R "$rootfs_dir"
-	} || {
-		echo "$rootfs_dir not mount, no need to unmount"
-	}
-}
-
 copy_layer() {
 	cd "$workspace"
 	layer_dir="$workspace/layers/$profile_name"
@@ -106,9 +110,9 @@ copy_layer() {
 	# In MacOS the console device is hvc0
 	# In Qemu the console device is ttyAMA0
 	if [[ $VM_PROVIDER == "qemu" ]]; then
-		find ./ -type f -exec sed -i 's/VM_CONSOLE_DEVICE/ttyAMA0/g' {} + # Replace VM_CONSOLE_DEVICE to ttyAMA0
+		find "$layer_dir" -type f -exec sed -i 's/VM_CONSOLE_DEVICE/ttyAMA0/g' {} + # Replace VM_CONSOLE_DEVICE to ttyAMA0
 	else
-		find ./ -type f -exec sed -i 's/VM_CONSOLE_DEVICE/hvc0/g' {} + # Replace VM_CONSOLE_DEVICE to hvc0
+		find "$layer_dir" -type f -exec sed -i 's/VM_CONSOLE_DEVICE/hvc0/g' {} + # Replace VM_CONSOLE_DEVICE to hvc0
 	fi
 
 	echo "copy $layer_dir layers files"
@@ -124,33 +128,24 @@ copy_layer() {
 		-0 /bin/su -c "echo rc_parallel=YES >> /etc/rc.conf"
 
 	sudo -E proot "${proot_args[@]}" \
-		-0 /bin/su -c "touch /.first_boot"
+		-0 /bin/su -c "echo first_boot > /.first_boot"
 
-	sync # must do sync !
-}
-
-umount_rootfs() {
-	echo "umount rootfs"
-	umount -R "$rootfs_dir"
+	sync
 }
 
 pack_rootfs() {
 	echo "pack rootfs"
+	losetup -a
 	cd "$output"
-	zstd --stdout --force "$bootable_img" > "$bootable_img_zst"
+	zstd --stdout --force "$bootable_img" >"$bootable_img_zst"
 	sha256sum "$bootable_img_zst" | tee "$bootable_img_zst.sha256sum"
 	cd "$workspace"
 }
 
 echo "=== $profile_name ==="
-
-clean_mapping
 install_target_profile_deps
 
 bootstrap_alpine
 copy_layer
-umount_rootfs
-clean_mapping
 
-# Final stage: boot raw disk and do update-grub
 pack_rootfs
