@@ -17,8 +17,8 @@ git clone https://github.com/proot-me/proot "$proot_src" --depth 1
 
 cd "$proot_src"
 
-CFLAG="-Wno-error=implicit-function-declaration" make -C src loader.elf -j8
-CFLAG="-Wno-error=implicit-function-declaration" make -C src proot care -j8
+CFLAG="-Wno-error=implicit-function-declaration" make -C src loader.elf -j8 > /dev/null
+CFLAG="-Wno-error=implicit-function-declaration" make -C src proot care -j8 > /dev/null
 
 rm -rf /usr/bin/proot
 rm -rf /usr/local/bin/proot

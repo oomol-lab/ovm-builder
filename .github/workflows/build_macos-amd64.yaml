@@ -2,20 +2,20 @@ name: Build Intel MacOS Profile
 on:
   push:
     tags:
-      - 'v*'
+      - 'v**'
     branches:
       - 'main'
       - 'dev'
     paths-ignore:
-      - '*.md'
-      - '*.txt'
+      - '**.md'
+      - '**.txt'
   pull_request:
     branches:
       - 'main'
       - 'dev'
     paths-ignore:
-      - '*.md'
-      - '*.txt'
+      - '**.md'
+      - '**.txt'
 
 env:
   CI_ENV: IN_CI
