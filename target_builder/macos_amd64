@@ -49,11 +49,6 @@ proot_args+=("-w" "/root")
 rootfs_part_uuid="4f1bfa20-73e8-4885-ab4b-1f9e67332f79"
 efi_part_uuid="F41A-23A6"
 
-run_cmd_in_rootfs() {
-	echo "Run cmd $*"
-	sudo -E proot "${proot_args[@]}" \
-		-0 /bin/su -c "$*"
-}
 
 mount_image() {
 	kpartx -av "$bootable_img"
@@ -137,7 +132,7 @@ pack_rootfs() {
 	echo "pack rootfs"
 	losetup -a
 	cd "$output"
-	zstd --stdout --force "$bootable_img" >"$bootable_img_zst"
+	zstd -10 --stdout --force "$bootable_img" >"$bootable_img_zst"
 	sha256sum "$bootable_img_zst" | tee "$bootable_img_zst.sha256sum"
 	cd "$workspace"
 }
