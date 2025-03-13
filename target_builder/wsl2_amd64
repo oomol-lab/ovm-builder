@@ -81,8 +81,14 @@ copy_layer() {
 	sync
 }
 
+# enter an empty runlevel will stop all service
+create_stop_runlevel(){
+	mkdir -p "$rootfs_dir/etc/runlevels/stop_all"
+}
+
 echo "=== $profile_name ==="
 
 bootstrap_alpine
 copy_layer
+create_stop_runlevel
 pack_rootfs
