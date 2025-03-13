@@ -34,7 +34,9 @@ parse_args() {
 			shift 2
 			;;
 		-s | --data-sector-counts)
-			data_sector_counts="$2"
+			_data_sector_counts="$2"
+			IFS=',' read -r -a arr <<<"$_data_sector_counts"
+			data_sector_counts=("${arr[@]}")
 			shift 2
 			;;
 		--)
@@ -53,7 +55,7 @@ parse_args() {
 		exit 100
 	fi
 
-	if [[ -z "${data_sector_counts}" ]]; then
+	if [[ -z "${data_sector_counts[*]}" ]]; then
 		echo "Need -s/--data-sector-counts"
 		exit 100
 	fi
@@ -61,7 +63,7 @@ parse_args() {
 	UUID="8a3219d0-4002-4cd9-8cb1-f3ffe52451f1"
 
 	echo "INFO: PODMAN API LISTEN PORT: ${podman_port}"
-	echo "INFO: DATA SECTOR SIZE: ${data_sector_counts}"
+	echo "INFO: DATA SECTOR SIZE: ${data_sector_counts[*]}"
 	echo "INFO: BLOCK UUID=${UUID}"
 }
 
@@ -82,7 +84,7 @@ func_kill_ovmd() {
 func_kill_service() {
 	openrc stop_all
 	while true; do
-		ps aux | grep -v grep | grep 'podman --log-level=' > /dev/null 
+		ps aux | grep -v grep | grep 'podman --log-level=' >/dev/null
 		ret=$?
 		test $ret -eq 0 && echo "Killing podman api..." || {
 			echo "Podman api stoped"
@@ -101,20 +103,21 @@ func_kill_service() {
 # If find right disk, export BLKNAME
 # find_disk have no outcall
 find_disk() {
-	data_sector_counts=$1
-	block_with_sector_counts=$(find /sys/block/*/size -type f)
-	for blk in ${block_with_sector_counts}; do
-		sector_counts="$(<${blk})"
-		blkname=$(dirname ${blk})
-		if [[ "${data_sector_counts}" = "${sector_counts}" ]]; then
-			BLKNAME=$(basename ${blkname}) # BLKNAME is target block !!
+	local data_sector_counts=("$@")
+	for scnums in "${data_sector_counts[@]}"; do
+		BLKNAME=$(grep -l -w "$scnums" /sys/block/*/size)
+		if [[ -n "$BLKNAME" ]]; then
+			echo "$BLKNAME:$scnums"
+			BLKNAME="$(basename "$(dirname "$(grep -l -w "$scnums" /sys/block/*/size)")")"
 			BLKNAME="/dev/$BLKNAME"
-			echo "find_disk(): Data block is $BLKNAME, Sector count $data_sector_counts"
+			echo "find $BLKNAME with $scnums"
 			return
+		else
+			echo "can not find block with $scnums, try again"
 		fi
 	done
 
-	echo "find_disk(): No block with sector counts: ${data_sector_counts}"
+	echo "find_disk(): No block with sector counts: ${data_sector_counts[*]}"
 	exit 100
 }
 # mount ${BLKNAME} to ${mountpoint}
@@ -235,7 +238,7 @@ write_podman_config() {
 main() {
 	parse_args "$@"
 	func_kill_ovmd
-	find_disk ${data_sector_counts}
+	find_disk "${data_sector_counts[@]}"
 	disk_format ${UUID}
 
 	# Copy /var/* into ${BLKNAME}
