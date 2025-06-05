@@ -267,7 +267,10 @@ main() {
 	}
 	echo "main(): wait....."
 	while true; do
-		sleep 1
+		# After enabling the "Resource Saver" mode in Docker Desktop for Windows, all resources under cgroup will be frozen.
+		# Since we rely on cgroup and cannot modify the logic of Docker Desktop for Windows, this is the only quick way to resolve the issue.
+		find /sys/fs/cgroup/openrc.* -name cgroup.freeze -exec sh -c 'echo 0 > {}' \;
+		sleep 0.5
 	done
 }
 
