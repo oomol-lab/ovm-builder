@@ -1,0 +1,12 @@
+#!/sbin/openrc-run
+description="Run fstrim -v /var every 5 minutes"
+command="/bin/sh"
+command_args="-c 'while true; do fstrim -v /var; sleep 300; done'"
+command_background="true"
+pidfile="/run/${RC_SVCNAME}.pid"
+output_logger="/opt/logger_wrapper.sh stdout"
+error_logger="/opt/logger_wrapper.sh stdout"
+
+depend() {
+    after local
+}

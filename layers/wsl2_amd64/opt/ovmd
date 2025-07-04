@@ -264,6 +264,7 @@ main() {
 		openrc default
 		/sbin/rc-service kernelogger start
 		/sbin/rc-service podman start
+		/sbin/rc-service fstrim start
 	}
 	echo "main(): wait....."
 	while true; do
